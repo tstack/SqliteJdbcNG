@@ -5,9 +5,9 @@ import org.bridj.Pointer;
 import org.bridj.StructObject;
 import org.bridj.ann.Library;
 import org.bridj.ann.Optional;
-import org.sqlite.jdbcng.SqliteDriver;
 
-import java.sql.*;
+import java.sql.SQLException;
+import java.sql.SQLSyntaxErrorException;
 import java.util.HashMap;
 
 @Library("sqlite3")
@@ -286,66 +286,5 @@ public class Sqlite3 {
 
     public static void checkOk(int rc) throws SQLException {
         checkOk(rc, null);
-    }
-
-    public static void main(String args[]) throws Exception {
-        System.out.println("version " + sqlite3_libversion().getCString());
-
-        Pointer<Pointer<Sqlite3Db>> db_out = Pointer.allocatePointer(Sqlite3Db.class);
-
-        int rc;
-
-        rc = sqlite3_open(Pointer.pointerToCString("/Users/stack/Downloads/test.db"), db_out);
-        System.out.println("rc = " + rc);
-        if (rc == 0) {
-            System.out.println("opened !" + mprintf("%Q.sqlite_master", "test ing"));
-
-            Pointer<Pointer<Statement>> stmt_out = Pointer.allocatePointer(Statement.class);
-            Pointer<Sqlite3Db> db = db_out.get();
-
-            rc = sqlite3_prepare_v2(db, Pointer.pointerToCString("select * from employees"), -1, stmt_out, Pointer.NULL);
-
-            Pointer<Statement> stmt = stmt_out.get();
-            System.out.println("rc = " + rc);
-
-            rc = sqlite3_step(stmt);
-
-            Pointer<Byte> name = sqlite3_column_text(stmt, 0);
-
-            System.out.println("name " + name.getCString());
-        }
-
-        {
-            Driver dr = new SqliteDriver();
-
-            Connection conn = dr.connect("jdbc:sqlite:/Users/timothy/Downloads/rashmi.db", null);
-
-            java.sql.Statement sqlStatement = conn.createStatement();
-
-            ResultSet rs = sqlStatement.executeQuery("select * from employees");
-
-            while (rs.next()) {
-                System.out.println("name " + rs.getString(1));
-            }
-
-            DatabaseMetaData meta = conn.getMetaData();
-
-
-
-            rs = meta.getTables("main", null, null, null);
-
-            while (rs.next()) {
-                System.out.println("table " + rs.getString(3));
-            }
-
-            rs = meta.getCatalogs();
-
-            while (rs.next()) {
-                System.out.println("db " + rs.getString(1));
-            }
-
-            System.out.println("major " + meta.getDatabaseMajorVersion() + " " + meta.getDatabaseMinorVersion());
-            System.out.println("vers " + meta.getDatabaseProductVersion());
-        }
     }
 }
