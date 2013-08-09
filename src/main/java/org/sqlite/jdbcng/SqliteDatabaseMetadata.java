@@ -30,13 +30,26 @@
 package org.sqlite.jdbcng;
 
 import org.sqlite.jdbcng.bridj.Sqlite3;
+import org.sqlite.jdbcng.internal.SQLKeywords;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 public class SqliteDatabaseMetadata implements DatabaseMetaData {
+    private static final String KEYWORD_LIST;
+
+    static {
+        SQLKeywords keywords = new SQLKeywords();
+        List<String> sqliteList = new ArrayList<String>(Arrays.asList(keywords.getSqliteKeywords()));
+
+        sqliteList.removeAll(Arrays.asList(keywords.getSqlKeywords()));
+
+        KEYWORD_LIST = Sqlite3.join(sqliteList.toArray(), ",");
+    }
+
     private final SqliteConnection conn;
 
     public SqliteDatabaseMetadata(SqliteConnection conn) {
@@ -175,7 +188,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public String getSQLKeywords() throws SQLException {
-        return ""; // TODO
+        return KEYWORD_LIST;
     }
 
     @Override

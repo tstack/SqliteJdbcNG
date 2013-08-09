@@ -20,11 +20,9 @@ public class SqliteUrl {
         String userPath = matcher.group(1);
 
         if (userPath.isEmpty())
-            userPath = ":memory";
+            userPath = ":memory:";
 
         this.path = userPath;
-
-        System.out.println("path " + this.path);
     }
 
     public String getPath() {
