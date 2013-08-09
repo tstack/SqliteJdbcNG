@@ -1,10 +1,8 @@
 package org.sqlite.jdbcng;
 
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 public class SqliteDriver implements Driver {
     public static final int[] VERSION = { 0, 5 };
@@ -43,5 +41,10 @@ public class SqliteDriver implements Driver {
     @Override
     public boolean jdbcCompliant() {
         return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+        return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 }

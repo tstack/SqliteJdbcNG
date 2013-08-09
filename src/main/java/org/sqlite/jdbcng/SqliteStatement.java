@@ -253,6 +253,16 @@ public class SqliteStatement implements Statement {
     }
 
     @Override
+    public void closeOnCompletion() throws SQLException {
+        //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public boolean isCloseOnCompletion() throws SQLException {
+        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
     public <T> T unwrap(Class<T> tClass) throws SQLException {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
