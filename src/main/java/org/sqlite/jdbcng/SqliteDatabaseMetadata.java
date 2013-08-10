@@ -788,12 +788,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsResultSetType(int i) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return (i == ResultSet.TYPE_FORWARD_ONLY);
     }
 
     @Override
-    public boolean supportsResultSetConcurrency(int i, int i2) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+    public boolean supportsResultSetConcurrency(int type, int concurrency) throws SQLException {
+        return (type == ResultSet.TYPE_FORWARD_ONLY && concurrency == ResultSet.CONCUR_READ_ONLY);
     }
 
     @Override
@@ -893,12 +893,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsResultSetHoldability(int i) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return (i == ResultSet.CLOSE_CURSORS_AT_COMMIT);
     }
 
     @Override
     public int getResultSetHoldability() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
     @Override
@@ -917,12 +917,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public int getJDBCMajorVersion() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return 4;
     }
 
     @Override
     public int getJDBCMinorVersion() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return 0;
     }
 
     @Override

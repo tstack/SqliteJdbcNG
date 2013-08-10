@@ -66,16 +66,20 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     public ResultSet executeQuery() throws SQLException {
         this.lastResult.close();
 
+        this.clearWarnings();
+
         this.lastResult = new SqliteResultSet(this, this.stmt);
         return this.lastResult;
     }
 
     @Override
     public int executeUpdate() throws SQLException {
-        Sqlite3.sqlite3_reset(this.stmt);
-
         if (Sqlite3.sqlite3_stmt_readonly(this.stmt) != 0)
             throw new SQLNonTransientException("SQL statement does not contain an update");
+
+        Sqlite3.sqlite3_reset(this.stmt);
+
+        this.clearWarnings();
 
         int rc = Sqlite3.sqlite3_step(this.stmt);
 

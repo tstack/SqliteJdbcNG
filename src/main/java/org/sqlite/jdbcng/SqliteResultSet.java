@@ -14,7 +14,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 
-public class SqliteResultSet implements ResultSet {
+public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private final SqliteStatement parent;
     private final Pointer<Sqlite3.Statement> stmt;
     private final int columnCount;
@@ -36,6 +36,8 @@ public class SqliteResultSet implements ResultSet {
     @Override
     public synchronized boolean next() throws SQLException {
         int rc;
+
+        this.clearWarnings();
 
         for (Blob blob : this.blobList) {
             blob.free();
@@ -254,16 +256,6 @@ public class SqliteResultSet implements ResultSet {
     }
 
     @Override
-    public SQLWarning getWarnings() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void clearWarnings() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
     public String getCursorName() throws SQLException {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
@@ -405,12 +397,12 @@ public class SqliteResultSet implements ResultSet {
 
     @Override
     public int getType() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return TYPE_FORWARD_ONLY;
     }
 
     @Override
     public int getConcurrency() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return CONCUR_READ_ONLY;
     }
 
     @Override
@@ -821,7 +813,7 @@ public class SqliteResultSet implements ResultSet {
 
     @Override
     public int getHoldability() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return CLOSE_CURSORS_AT_COMMIT;
     }
 
     @Override

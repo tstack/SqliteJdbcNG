@@ -5,6 +5,8 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 public class SqliteDriver implements Driver {
+    private static final Logger LOGGER = Logger.getLogger(SqliteDriver.class.getPackage().getName());
+
     static final int[] VERSION = { 0, 5 };
 
     @Override
@@ -40,11 +42,11 @@ public class SqliteDriver implements Driver {
 
     @Override
     public boolean jdbcCompliant() {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
     public Logger getParentLogger() throws SQLFeatureNotSupportedException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return LOGGER;
     }
 }

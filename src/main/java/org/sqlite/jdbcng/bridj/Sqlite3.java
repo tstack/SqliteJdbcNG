@@ -59,6 +59,7 @@ public class Sqlite3 {
     public static native int sqlite3_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_open(Pointer<Byte> filename, Pointer<Pointer<Sqlite3Db>> db);
 
+    public static native int sqlite3_get_autocommit(Pointer<Sqlite3Db> db);
     public static native Pointer<Byte> sqlite3_errmsg(Pointer<Sqlite3Db> db);
 
     public static native int sqlite3_limit(Pointer<Sqlite3Db> db, int id, int newVal);

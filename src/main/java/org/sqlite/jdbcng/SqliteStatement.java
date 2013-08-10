@@ -7,7 +7,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SqliteStatement implements Statement {
+public class SqliteStatement extends SqliteCommon implements Statement {
     protected final SqliteConnection conn;
     protected final List<String> batchList = new ArrayList<String>();
     protected SqliteResultSet lastResult;
@@ -30,6 +30,8 @@ public class SqliteStatement implements Statement {
     public ResultSet executeQuery(String s) throws SQLException {
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
+        this.clearWarnings();
+
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
 
@@ -45,6 +47,8 @@ public class SqliteStatement implements Statement {
         if (this.conn.isReadOnly())
             throw new SQLNonTransientException(
                     "Updates cannot be performed while the connection is in read-only mode.");
+
+        this.clearWarnings();
 
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
@@ -118,16 +122,6 @@ public class SqliteStatement implements Statement {
 
     @Override
     public void cancel() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public SQLWarning getWarnings() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public void clearWarnings() throws SQLException {
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
