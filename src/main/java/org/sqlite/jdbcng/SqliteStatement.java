@@ -16,6 +16,16 @@ public class SqliteStatement implements Statement {
         this.conn = conn;
     }
 
+    Pointer<Sqlite3.Statement> requireAccess(Pointer<Sqlite3.Statement> stmt) throws SQLException {
+        if (this.conn.isReadOnly() && Sqlite3.sqlite3_stmt_readonly(stmt) == 0) {
+            Sqlite3.sqlite3_finalize(stmt);
+            throw new SQLNonTransientException(
+                    "Connection is in read-only mode, but statement is not read-only");
+        }
+
+        return stmt;
+    }
+
     @Override
     public ResultSet executeQuery(String s) throws SQLException {
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
@@ -23,7 +33,7 @@ public class SqliteStatement implements Statement {
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
 
-        this.lastResult = new SqliteResultSet(this, stmt_out.get());
+        this.lastResult = new SqliteResultSet(this, requireAccess(stmt_out.get()));
 
         return this.lastResult;
     }
@@ -31,6 +41,10 @@ public class SqliteStatement implements Statement {
     @Override
     public int executeUpdate(String s) throws SQLException {
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
+
+        if (this.conn.isReadOnly())
+            throw new SQLNonTransientException(
+                    "Updates cannot be performed while the connection is in read-only mode.");
 
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));

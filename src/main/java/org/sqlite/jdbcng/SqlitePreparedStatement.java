@@ -29,6 +29,7 @@
 
 package org.sqlite.jdbcng;
 
+import org.bridj.BridJ;
 import org.bridj.Pointer;
 import org.sqlite.jdbcng.bridj.Sqlite3;
 
@@ -43,10 +44,11 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     private final Pointer<Sqlite3.Statement> stmt;
     private final int paramCount;
 
-    public SqlitePreparedStatement(SqliteConnection conn, Pointer<Sqlite3.Statement> stmt) {
+    public SqlitePreparedStatement(SqliteConnection conn, Pointer<Sqlite3.Statement> stmt)
+            throws SQLException {
         super(conn);
 
-        this.stmt = stmt;
+        this.stmt = requireAccess(stmt);
         this.paramCount = Sqlite3.sqlite3_bind_parameter_count(stmt);
         this.lastResult = new SqliteResultSet(this, this.stmt);
     }
@@ -62,12 +64,31 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public ResultSet executeQuery() throws SQLException {
-        return new SqliteResultSet(this, this.stmt);
+        this.lastResult.close();
+
+        this.lastResult = new SqliteResultSet(this, this.stmt);
+        return this.lastResult;
     }
 
     @Override
     public int executeUpdate() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        Sqlite3.sqlite3_reset(this.stmt);
+
+        if (Sqlite3.sqlite3_stmt_readonly(this.stmt) != 0)
+            throw new SQLNonTransientException("SQL statement does not contain an update");
+
+        int rc = Sqlite3.sqlite3_step(this.stmt);
+
+        switch (Sqlite3.ReturnCodes.valueOf(rc)) {
+            case SQLITE_OK:
+            case SQLITE_DONE:
+                break;
+            default:
+                Sqlite3.checkOk(rc);
+                break;
+        }
+
+        return Sqlite3.sqlite3_changes(this.conn.getHandle());
     }
 
     @Override
@@ -123,7 +144,16 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setBytes(int i, byte[] bytes) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        Pointer<Byte> ptr = Pointer.pointerToBytes(bytes);
+        Sqlite3.BufferDestructorBase destructor = new Sqlite3.BufferDestructor(ptr);
+
+        BridJ.protectFromGC(destructor);
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_blob(
+                this.stmt,
+                i,
+                ptr,
+                bytes.length,
+                Pointer.pointerTo(destructor)));
     }
 
     @Override
@@ -193,7 +223,16 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setBlob(int i, Blob blob) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        SqliteBlob sb = (SqliteBlob)blob;
+        Sqlite3.BufferDestructorBase destructor = new Sqlite3.BufferDestructor(sb.getHandle());
+
+        BridJ.protectFromGC(destructor);
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_blob(
+                this.stmt,
+                checkParam(i),
+                sb.getHandle(),
+                (int) sb.length(),
+                Pointer.pointerTo(destructor)));
     }
 
     @Override
@@ -233,7 +272,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setURL(int i, URL url) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.setString(i, url.toString());
     }
 
     @Override

@@ -6,15 +6,19 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Map;
 
 public class SqliteResultSet implements ResultSet {
     private final SqliteStatement parent;
     private final Pointer<Sqlite3.Statement> stmt;
     private final int columnCount;
+    private final List<Blob> blobList = new ArrayList<Blob>();
     private SqliteResultSetMetadata metadata;
     private boolean closed;
     private int lastColumn;
@@ -30,8 +34,13 @@ public class SqliteResultSet implements ResultSet {
     }
 
     @Override
-    public boolean next() throws SQLException {
+    public synchronized boolean next() throws SQLException {
         int rc;
+
+        for (Blob blob : this.blobList) {
+            blob.free();
+        }
+        this.blobList.clear();
 
         rc = Sqlite3.sqlite3_step(this.stmt);
         switch (Sqlite3.ReturnCodes.valueOf(rc)) {
@@ -660,8 +669,14 @@ public class SqliteResultSet implements ResultSet {
     }
 
     @Override
-    public Blob getBlob(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public synchronized Blob getBlob(int i) throws SQLException {
+        Pointer<Byte> ptr = Sqlite3.sqlite3_column_blob(this.stmt, checkColumn(i));
+        int len = Sqlite3.sqlite3_column_bytes(this.stmt, checkColumn(i));
+        SqliteBlob retval = new SqliteBlob(ptr.validBytes(len));
+
+        this.blobList.add(retval);
+
+        return retval;
     }
 
     @Override
@@ -671,7 +686,7 @@ public class SqliteResultSet implements ResultSet {
 
     @Override
     public Array getArray(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support arrays");
     }
 
     @Override
@@ -686,7 +701,7 @@ public class SqliteResultSet implements ResultSet {
 
     @Override
     public Blob getBlob(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getBlob(this.findColumn(s));
     }
 
     @Override
@@ -696,7 +711,7 @@ public class SqliteResultSet implements ResultSet {
 
     @Override
     public Array getArray(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support arrays");
     }
 
     @Override
@@ -731,12 +746,17 @@ public class SqliteResultSet implements ResultSet {
 
     @Override
     public URL getURL(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        try {
+            return new URL(this.getString(i));
+        }
+        catch (MalformedURLException e) {
+            throw new SQLDataException("Invalid URL", "", e);
+        }
     }
 
     @Override
     public URL getURL(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getURL(this.findColumn(s));
     }
 
     @Override

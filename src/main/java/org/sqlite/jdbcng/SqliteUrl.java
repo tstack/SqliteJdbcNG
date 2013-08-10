@@ -19,9 +19,6 @@ public class SqliteUrl {
 
         String userPath = matcher.group(1);
 
-        if (userPath.isEmpty())
-            userPath = ":memory:";
-
         this.path = userPath;
     }
 

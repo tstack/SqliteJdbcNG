@@ -10,13 +10,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.logging.Logger;
 
 public class SqliteConnection implements Connection {
+    private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
+
     private final String url;
     private final Pointer<Sqlite3.Sqlite3Db> db;
     private final Properties properties;
     private final List<WeakReference> statements = new ArrayList<WeakReference>();
     private SqliteDatabaseMetadata metadata;
+    private SQLWarning warnings;
+    private boolean readOnly;
     private boolean closed;
 
     public SqliteConnection(String url, Properties properties) throws SQLException {
@@ -37,6 +42,15 @@ public class SqliteConnection implements Connection {
 
     public Pointer<Sqlite3.Sqlite3Db> getHandle() {
         return this.db;
+    }
+
+    protected synchronized void addWarning(SQLWarning warning) {
+        LOGGER.warning(warning.getMessage());
+
+        if (this.warnings != null) {
+            this.warnings.setNextWarning(warning);
+        }
+        this.warnings = warning;
     }
 
     @Override
@@ -127,22 +141,26 @@ public class SqliteConnection implements Connection {
 
     @Override
     public void setReadOnly(boolean b) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.readOnly = true;
     }
 
     @Override
     public boolean isReadOnly() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.readOnly;
     }
 
     @Override
     public void setCatalog(String s) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        String msg = String.format(
+                "setCatalog({0}) is not supported by SQLite, use fully qualified names in SQL statements",
+                s);
+
+        addWarning(new SQLWarning(msg));
     }
 
     @Override
     public String getCatalog() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return "";
     }
 
     @Override
@@ -157,12 +175,12 @@ public class SqliteConnection implements Connection {
 
     @Override
     public SQLWarning getWarnings() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.warnings;
     }
 
     @Override
     public void clearWarnings() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.warnings = null;
     }
 
     @Override
@@ -257,7 +275,7 @@ public class SqliteConnection implements Connection {
 
     @Override
     public Blob createBlob() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return new SqliteBlob();
     }
 
     @Override

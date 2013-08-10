@@ -1,8 +1,6 @@
 package org.sqlite.jdbcng.bridj;
 
-import org.bridj.BridJ;
-import org.bridj.Pointer;
-import org.bridj.StructObject;
+import org.bridj.*;
 import org.bridj.ann.Library;
 import org.bridj.ann.Optional;
 
@@ -23,11 +21,30 @@ public class Sqlite3 {
         }
     }
 
-    public static class DummyDestructor extends StructObject {
+    public static class Sqlite3FreeCallback extends Callback<Sqlite3FreeCallback> {
+        public void apply(Pointer<Byte> mem) {
+            sqlite3_free(mem);
+        }
+    }
+
+    public static abstract class BufferDestructorBase extends Callback<BufferDestructorBase> {
+        public abstract void apply(Pointer<Void> mem);
+    }
+
+    public static class BufferDestructor extends BufferDestructorBase {
+        private final Pointer<Byte> buffer;
+
+        public BufferDestructor(Pointer<Byte> buffer) {
+            this.buffer = buffer;
+        }
+
+        @Override
+        public void apply(Pointer< Void > mem) {
+            BridJ.unprotectFromGC(this);
+        }
     }
 
     public static class Sqlite3Db extends StructObject {
-
     }
 
     public static class Statement extends StructObject {
@@ -37,6 +54,7 @@ public class Sqlite3 {
     public static native int sqlite3_libversion_number();
 
     public static native Pointer<Byte> sqlite3_mprintf(Pointer<Byte> fmt, Object... varargs);
+    public static native void sqlite3_free(Pointer<Byte> mem);
 
     public static native int sqlite3_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_open(Pointer<Byte> filename, Pointer<Pointer<Sqlite3Db>> db);
@@ -48,6 +66,9 @@ public class Sqlite3 {
     public static native int sqlite3_clear_bindings(Pointer<Statement> stmt);
     public static native int sqlite3_bind_parameter_count(Pointer<Statement> stmt);
     public static native int sqlite3_bind_null(Pointer<Statement> stmt, int arg);
+    public static native int sqlite3_bind_blob(Pointer<Statement> stmt, int arg,
+                                               Pointer<Byte> mem, int len,
+                                               Pointer<BufferDestructorBase> dest);
     public static native int sqlite3_bind_int(Pointer<Statement> stmt, int arg, int value);
     public static native int sqlite3_bind_int64(Pointer<Statement> stmt, int arg, long value);
     public static native int sqlite3_bind_double(Pointer<Statement> stmt, int arg, double value);
@@ -55,7 +76,7 @@ public class Sqlite3 {
                                                int arg,
                                                Pointer<Byte> str,
                                                int len,
-                                               Pointer<DummyDestructor> dest);
+                                               Pointer<BufferDestructorBase> dest);
 
     public static native int sqlite3_prepare_v2(Pointer<Sqlite3Db> db,
                                                 Pointer<Byte> sql,
@@ -89,9 +110,14 @@ public class Sqlite3 {
     public static native long sqlite3_column_int64(Pointer<Statement> stmt, int col);
     public static native double sqlite3_column_double(Pointer<Statement> stmt, int col);
 
-    public static Pointer<?> SQLITE_STATIC = Pointer.pointerToAddress(0, 0, new NoopReleaser());
-    public static Pointer<DummyDestructor> SQLITE_TRANSIENT = (Pointer<DummyDestructor>)
-            Pointer.pointerToAddress(-1, 0, new NoopReleaser());
+    private static Pointer<BufferDestructorBase> constantFunctionValue(long value) {
+        Pointer ptr = Pointer.pointerToAddress(value, 0, new NoopReleaser());
+
+        return ptr.as(BufferDestructorBase.class);
+    }
+
+    public static Pointer<BufferDestructorBase> SQLITE_STATIC = null;
+    public static Pointer<BufferDestructorBase> SQLITE_TRANSIENT = constantFunctionValue(-1);
 
     public static String mprintf(String fmt, Object... varargs) {
         Object[] xargs = new Object[varargs.length];
@@ -107,7 +133,12 @@ public class Sqlite3 {
         }
         result = sqlite3_mprintf(Pointer.pointerToCString(fmt), xargs);
 
-        return result.getCString();
+        try {
+            return result.getCString();
+        }
+        finally {
+            sqlite3_free(result);
+        }
     }
 
     public static String join(Object[] elems, String sep) {
