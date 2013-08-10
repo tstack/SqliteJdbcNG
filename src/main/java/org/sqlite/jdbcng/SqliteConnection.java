@@ -152,7 +152,7 @@ public class SqliteConnection implements Connection {
     @Override
     public void setCatalog(String s) throws SQLException {
         String msg = String.format(
-                "setCatalog({0}) is not supported by SQLite, use fully qualified names in SQL statements",
+                "setCatalog(%s) is not supported by SQLite, use fully qualified names in SQL statements",
                 s);
 
         addWarning(new SQLWarning(msg));
@@ -174,12 +174,12 @@ public class SqliteConnection implements Connection {
     }
 
     @Override
-    public SQLWarning getWarnings() throws SQLException {
+    public synchronized SQLWarning getWarnings() throws SQLException {
         return this.warnings;
     }
 
     @Override
-    public void clearWarnings() throws SQLException {
+    public synchronized void clearWarnings() throws SQLException {
         this.warnings = null;
     }
 

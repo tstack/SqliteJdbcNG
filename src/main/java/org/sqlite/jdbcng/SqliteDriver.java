@@ -5,7 +5,7 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 public class SqliteDriver implements Driver {
-    public static final int[] VERSION = { 0, 5 };
+    static final int[] VERSION = { 0, 5 };
 
     @Override
     public Connection connect(String url, Properties properties) throws SQLException {

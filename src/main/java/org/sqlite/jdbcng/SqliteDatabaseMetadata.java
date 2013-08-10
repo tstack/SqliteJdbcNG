@@ -683,18 +683,18 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                         "ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME",
                 catalog,
                 Sqlite3.join(Collections.nCopies(types.length, "?").toArray(), ", "));
-        PreparedStatement ps = this.conn.prepareStatement(sql);
+        try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
+            ps.setString(1, catalog);
 
-        ps.setString(1, catalog);
+            if (tableNamePattern == null)
+                tableNamePattern = "%";
+            ps.setString(2, tableNamePattern);
+            for (int lpc = 0; lpc < types.length; lpc++) {
+                ps.setString(3 + lpc, types[lpc]);
+            }
 
-        if (tableNamePattern == null)
-            tableNamePattern = "%";
-        ps.setString(2, tableNamePattern);
-        for (int lpc = 0; lpc < types.length; lpc++) {
-            ps.setString(3 + lpc, types[lpc]);
+            return ps.executeQuery();
         }
-
-        return ps.executeQuery();
     }
 
     @Override
@@ -704,23 +704,26 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getCatalogs() throws SQLException {
-        Statement stmt = this.conn.createStatement();
-        ResultSet rs = stmt.executeQuery("PRAGMA database_list");
-        List<String> dbNames = new ArrayList<String>();
+        try (Statement stmt = this.conn.createStatement()) {
+            ResultSet rs = stmt.executeQuery("PRAGMA database_list");
+            List<String> dbNames = new ArrayList<String>();
 
-        while (rs.next()) {
-            dbNames.add(rs.getString(2));
+            while (rs.next()) {
+                dbNames.add(rs.getString(2));
+            }
+
+            String query = Sqlite3.join(
+                    Collections.nCopies(dbNames.size(), "SELECT ? as TABLE_CAT").toArray(),
+                    " UNION ALL ");
+
+            try (PreparedStatement preparedStatement = this.conn.prepareStatement(query)) {
+                for (int lpc = 0; lpc < dbNames.size(); lpc++) {
+                    preparedStatement.setString(lpc + 1, dbNames.get(lpc));
+                }
+
+                return preparedStatement.executeQuery();
+            }
         }
-
-        PreparedStatement preparedStatement = this.conn.prepareStatement(
-                Sqlite3.join(Collections.nCopies(dbNames.size(), "SELECT ? as TABLE_CAT").toArray(),
-                        " UNION ALL "));
-
-        for (int lpc = 0; lpc < dbNames.size(); lpc++) {
-            preparedStatement.setString(lpc + 1, dbNames.get(lpc));
-        }
-
-        return preparedStatement.executeQuery();
     }
 
     @Override

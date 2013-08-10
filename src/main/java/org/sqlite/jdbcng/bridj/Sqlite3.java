@@ -116,8 +116,8 @@ public class Sqlite3 {
         return ptr.as(BufferDestructorBase.class);
     }
 
-    public static Pointer<BufferDestructorBase> SQLITE_STATIC = null;
-    public static Pointer<BufferDestructorBase> SQLITE_TRANSIENT = constantFunctionValue(-1);
+    public static final Pointer<BufferDestructorBase> SQLITE_STATIC = null;
+    public static final Pointer<BufferDestructorBase> SQLITE_TRANSIENT = constantFunctionValue(-1);
 
     public static String mprintf(String fmt, Object... varargs) {
         Object[] xargs = new Object[varargs.length];
@@ -176,7 +176,7 @@ public class Sqlite3 {
             }
         }
 
-        public static Limit valueOf(long value) {
+        public static Limit valueOf(int value) {
             return VALUE_TO_ENUM.get(value);
         }
 
@@ -206,7 +206,7 @@ public class Sqlite3 {
             }
         }
 
-        public static DataType valueOf(long value) {
+        public static DataType valueOf(int value) {
             return VALUE_TO_ENUM.get(value);
         }
 

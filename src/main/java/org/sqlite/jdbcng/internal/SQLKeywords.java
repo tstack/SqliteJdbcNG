@@ -39,19 +39,18 @@ import java.util.List;
 public class SQLKeywords {
     private static final String[] readResource(String name) {
         InputStream is = SQLKeywords.class.getResourceAsStream(name);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-        List<String> keywords = new ArrayList<String>();
-        String line;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+            List<String> keywords = new ArrayList<String>();
+            String line;
 
-        try {
             while ((line = reader.readLine()) != null) {
                 keywords.add(line);
             }
+
+            return keywords.toArray(new String[keywords.size()]);
         } catch (IOException e) {
             throw new RuntimeException("Unable to read resource file");
         }
-
-        return keywords.toArray(new String[keywords.size()]);
     }
 
     private final String[] sqlKeywords;
