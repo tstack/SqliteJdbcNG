@@ -29,19 +29,32 @@
 
 package org.sqlite.jdbcng;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.sql.*;
 
-public class BasicQueries extends TestCase {
-    private static final SqliteDriver DRIVER = new SqliteDriver();
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-    private Connection getConnection() throws SQLException {
-        return DRIVER.connect("jdbc:sqlite:", null);
+public class BasicQueries {
+    private final SqliteDriver driver = new SqliteDriver();
+    private Connection conn;
+
+    @Before
+    public void getConnection() throws SQLException {
+        this.conn = this.driver.connect("jdbc:sqlite:", null);
     }
 
+    @After
+    public void closeConnection() throws SQLException {
+        this.conn.close();
+        this.conn = null;
+    }
+
+    @Test
     public void testSimpleQueries() throws Exception {
-        Connection conn = this.getConnection();
         Statement stmt = conn.createStatement();
 
         assertEquals("jdbc:sqlite:", conn.getMetaData().getURL());
@@ -67,7 +80,13 @@ public class BasicQueries extends TestCase {
 
         assertEquals(1, rc);
 
-        conn.commit();
+        try {
+            conn.commit();
+            fail("commit should throw an exception since we're in auto-commit mode");
+        }
+        catch (SQLException e) {
+        }
+
         assertEquals(true, conn.getAutoCommit());
         assertEquals(false, conn.isReadOnly());
 

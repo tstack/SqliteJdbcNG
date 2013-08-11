@@ -29,12 +29,14 @@
 
 package org.sqlite.jdbcng.bridj;
 
-import org.bridj.*;
+import org.bridj.BridJ;
+import org.bridj.Callback;
+import org.bridj.Pointer;
+import org.bridj.StructObject;
 import org.bridj.ann.Library;
 import org.bridj.ann.Optional;
 
-import java.sql.SQLException;
-import java.sql.SQLSyntaxErrorException;
+import java.sql.*;
 import java.util.HashMap;
 
 @Library("sqlite3")
@@ -105,6 +107,7 @@ public class Sqlite3 {
 
     public static native Pointer<Byte> sqlite3_libversion();
     public static native int sqlite3_libversion_number();
+    public static native Pointer<Byte> sqlite3_sourceid();
 
     public static native Pointer<Byte> sqlite3_mprintf(Pointer<Byte> fmt, Object... varargs);
     public static native void sqlite3_free(Pointer<Byte> mem);
@@ -187,6 +190,9 @@ public class Sqlite3 {
 
     public static Pointer<Sqlite3Db> withDbReleaser(Pointer<Sqlite3Db> db) {
         try {
+            if (db == null)
+                return null;
+
             return Pointer.pointerToAddress(db.getPeer(), Sqlite3Db.class, DB_RELEASER);
         }
         catch (Throwable e) {
@@ -384,6 +390,17 @@ public class Sqlite3 {
                 switch (rcEnum) {
                     case SQLITE_ERROR:
                         throw new SQLSyntaxErrorException(msg, "", rc);
+                    case SQLITE_CORRUPT:
+                        throw new SQLNonTransientException(msg, "", rc);
+                    case SQLITE_BUSY:
+                    case SQLITE_IOERR:
+                    case SQLITE_NOTFOUND:
+                    case SQLITE_LOCKED:
+                        throw new SQLTransientException(msg, "", rc);
+                    case SQLITE_NOTADB:
+                        throw new SQLNonTransientConnectionException(msg, "", rc);
+                    case SQLITE_CANTOPEN:
+                        throw new SQLTransientConnectionException(msg, "", rc);
                     default:
                         throw new SQLException(msg, "", rc);
                 }

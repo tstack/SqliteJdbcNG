@@ -63,6 +63,18 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         this.properties = properties;
 
         Sqlite3.checkOk(rc);
+
+        /*
+         * Do an initial query to make sure the database is valid.  If there
+         * is something wrong with it, it will throw a SQLITE_NOTADB error.
+         */
+        this.executeCanned("PRAGMA database_list");
+    }
+
+    void requireOpened() throws SQLException {
+        if (this.closed) {
+            throw new SQLNonTransientException("Database is closed for business");
+        }
     }
 
     void requireResultSetType(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
@@ -76,6 +88,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     }
 
     void executeCanned(String sql) throws SQLException {
+        requireOpened();
+
         try (Statement stmt = this.createStatement()) {
             stmt.execute(sql);
         }
@@ -87,6 +101,20 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     public Pointer<Sqlite3.Sqlite3Db> getHandle() {
         return this.db;
+    }
+
+    private <T extends Statement> T trackStatement(T stmt) {
+        synchronized (this.statements) {
+            this.statements.add(new WeakReference<Statement>(stmt));
+        }
+
+        return stmt;
+    }
+
+    void statementClosed(Statement stmt) {
+        synchronized (this.statements) {
+            this.statements.remove(new WeakReference<Statement>(stmt));
+        }
     }
 
     @Override
@@ -114,6 +142,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
+        requireOpened();
+
         if (!autoCommit) {
             this.executeCanned("BEGIN");
         }
@@ -121,6 +151,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public boolean getAutoCommit() throws SQLException {
+        requireOpened();
+
         return Sqlite3.sqlite3_get_autocommit(this.db) != 0;
     }
 
@@ -163,7 +195,12 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                     if (stmt == null)
                         continue;
 
-                    stmt.close();
+                    if (!stmt.isClosed()) {
+                        LOGGER.log(Level.WARNING,
+                                "Statement was not explicitly closed -- {0}",
+                                new Object[] { ((SqliteStatement)stmt).getLastQuery() });
+                        stmt.close();
+                    }
                 }
             }
 
@@ -179,6 +216,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public synchronized DatabaseMetaData getMetaData() throws SQLException {
+        requireOpened();
+
         if (this.metadata == null)
             this.metadata = new SqliteDatabaseMetadata(this);
 
@@ -187,16 +226,22 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public void setReadOnly(boolean b) throws SQLException {
+        requireOpened();
+
         this.readOnly = true;
     }
 
     @Override
     public boolean isReadOnly() throws SQLException {
+        requireOpened();
+
         return this.readOnly;
     }
 
     @Override
     public void setCatalog(String s) throws SQLException {
+        requireOpened();
+
         String msg = String.format(
                 "setCatalog(%s) is not supported by SQLite, use fully qualified names in SQL statements",
                 s);
@@ -206,11 +251,15 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public String getCatalog() throws SQLException {
+        requireOpened();
+
         return "";
     }
 
     @Override
     public void setTransactionIsolation(int level) throws SQLException {
+        requireOpened();
+
         switch (level) {
             case TRANSACTION_SERIALIZABLE:
                 this.executeCanned("PRAGMA read_uncommitted = false");
@@ -226,6 +275,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public int getTransactionIsolation() throws SQLException {
+        requireOpened();
+
         try (Statement stmt = this.createStatement()) {
             ResultSet rs = stmt.executeQuery("PRAGMA read_uncommitted");
 
@@ -265,12 +316,16 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public void setHoldability(int i) throws SQLException {
+        requireOpened();
+
         if (i != ResultSet.CLOSE_CURSORS_AT_COMMIT)
             throw new SQLFeatureNotSupportedException("SQLite only supports CLOSE_CURSORS_AT_COMMIT");
     }
 
     @Override
     public int getHoldability() throws SQLException {
+        requireOpened();
+
         return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
@@ -299,15 +354,10 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                                      int resultSetConcurrency,
                                      int resultSetHoldability)
             throws SQLException {
-        Statement retval = new SqliteStatement(this);
-
+        requireOpened();
         requireResultSetType(resultSetType, resultSetConcurrency, resultSetHoldability);
 
-        synchronized (this.statements) {
-            this.statements.add(new WeakReference<>(retval));
-        }
-
-        return retval;
+        return this.trackStatement(new SqliteStatement(this));
     }
 
     @Override
@@ -315,6 +365,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                                               int resultSetType,
                                               int resultSetConcurrency,
                                               int resultSetHoldability) throws SQLException {
+        requireOpened();
         requireResultSetType(resultSetType, resultSetConcurrency, resultSetHoldability);
 
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
@@ -322,7 +373,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.db,
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
 
-        return new SqlitePreparedStatement(this, stmt_out.get());
+        return this.trackStatement(new SqlitePreparedStatement(this, stmt_out.get()));
     }
 
     @Override
@@ -355,6 +406,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public Blob createBlob() throws SQLException {
+        requireOpened();
+
         return new SqliteBlob();
     }
 
@@ -405,10 +458,13 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public void setSchema(String schema) throws SQLException {
+        requireOpened();
     }
 
     @Override
     public String getSchema() throws SQLException {
+        requireOpened();
+
         return "";
     }
 

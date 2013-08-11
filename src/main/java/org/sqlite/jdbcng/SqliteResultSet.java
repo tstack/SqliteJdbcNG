@@ -433,12 +433,11 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public void setFetchSize(int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
     public int getFetchSize() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return 0;
     }
 
     @Override

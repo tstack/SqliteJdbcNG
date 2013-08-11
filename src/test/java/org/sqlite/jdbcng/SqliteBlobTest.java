@@ -29,15 +29,20 @@
 
 package org.sqlite.jdbcng;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.io.InputStream;
 import java.sql.*;
 import java.util.Arrays;
 
-public class SqliteBlobTest extends TestCase {
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
+public class SqliteBlobTest {
     private final byte[] TEST_BYTES = "Hello, World!\n".getBytes();
 
+    @Test
     public void testSetBytes() throws Exception {
         byte[] buffer = new byte[1024];
         Blob blob = new SqliteBlob();
@@ -46,12 +51,12 @@ public class SqliteBlobTest extends TestCase {
 
         blob.setBytes(1, TEST_BYTES);
         assertEquals(TEST_BYTES.length, blob.length());
-        assertTrue(Arrays.equals(TEST_BYTES, blob.getBytes(1, (int) blob.length())));
-        assertTrue(Arrays.equals(TEST_BYTES, blob.getBytes(1, 1024)));
+        assertArrayEquals(TEST_BYTES, blob.getBytes(1, (int) blob.length()));
+        assertArrayEquals(TEST_BYTES, blob.getBytes(1, 1024));
 
         blob.truncate(5);
         assertEquals(5, blob.length());
-        assertTrue(Arrays.equals(Arrays.copyOf(TEST_BYTES, 5), blob.getBytes(1, 1024)));
+        assertArrayEquals(Arrays.copyOf(TEST_BYTES, 5), blob.getBytes(1, 1024));
 
         InputStream is = blob.getBinaryStream();
         for (int lpc = 1; lpc <= 5; lpc++) {
@@ -75,6 +80,7 @@ public class SqliteBlobTest extends TestCase {
         }
     }
 
+    @Test
     public void testBlobInQueries() throws Exception {
         SqliteDriver driver = new SqliteDriver();
         Connection conn = driver.connect("jdbc:sqlite:", null);
@@ -95,7 +101,7 @@ public class SqliteBlobTest extends TestCase {
         rs.next();
         blob = rs.getBlob(1);
         assertEquals(TEST_BYTES.length, blob.length());
-        assertTrue(Arrays.equals(TEST_BYTES, blob.getBytes(1, 1024)));
+        assertArrayEquals(TEST_BYTES, blob.getBytes(1, 1024));
 
         rs.next();
         try {

@@ -44,7 +44,9 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     protected final SqliteConnection conn;
     protected final List<String> batchList = new ArrayList<String>();
+    protected String lastQuery;
     protected SqliteResultSet lastResult;
+    protected int lastUpdateCount;
     protected boolean closed;
 
     public SqliteStatement(SqliteConnection conn) {
@@ -63,14 +65,21 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         return stmt;
     }
 
+    String getLastQuery() {
+        return this.lastQuery;
+    }
+
     @Override
     public ResultSet executeQuery(String s) throws SQLException {
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
         this.clearWarnings();
 
+        this.lastQuery = s;
+
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
-                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
+                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
+                this.conn.getHandle());
 
         this.lastResult = new SqliteResultSet(this, requireAccess(stmt_out.get()));
 
@@ -79,39 +88,9 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public int executeUpdate(String s) throws SQLException {
-        Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
+        this.execute(s);
 
-        if (this.conn.isReadOnly())
-            throw new SQLNonTransientException(
-                    "Updates cannot be performed while the connection is in read-only mode.");
-
-        this.clearWarnings();
-
-        Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
-                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
-
-        Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
-
-        try {
-            if (Sqlite3.sqlite3_stmt_readonly(stmt) != 0)
-                throw new SQLNonTransientException("SQL statement does not contain an update");
-
-            int rc = Sqlite3.sqlite3_step(stmt);
-
-            switch (Sqlite3.ReturnCodes.valueOf(rc)) {
-                case SQLITE_OK:
-                case SQLITE_DONE:
-                    break;
-                default:
-                    Sqlite3.checkOk(rc);
-                    break;
-            }
-        }
-        finally {
-            stmt.release();
-        }
-
-        return Sqlite3.sqlite3_changes(this.conn.getHandle());
+        return this.lastUpdateCount;
     }
 
     @Override
@@ -122,6 +101,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
             this.lastResult.close();
             this.lastResult = null;
             stmt.release();
+            this.conn.statementClosed(this);
         }
 
         this.closed = true;
@@ -173,7 +153,49 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public boolean execute(String s) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
+
+        if (this.conn.isReadOnly()) {
+            throw new SQLNonTransientException(
+                    "Updates cannot be performed while the connection is in read-only mode.");
+        }
+
+        this.clearWarnings();
+
+        this.lastQuery = s;
+        Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
+                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
+                this.conn.getHandle());
+
+        Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
+
+        try {
+            int rc = Sqlite3.sqlite3_step(stmt);
+
+            switch (Sqlite3.ReturnCodes.valueOf(rc)) {
+                case SQLITE_OK:
+                case SQLITE_DONE:
+                    break;
+                default:
+                    Sqlite3.checkOk(rc, this.conn.getHandle());
+                    break;
+            }
+
+            if (Sqlite3.sqlite3_stmt_readonly(stmt) != 0) {
+                this.lastResult = new SqliteResultSet(this, stmt);
+                stmt = null;
+            }
+            else {
+                this.lastResult = null;
+            }
+        }
+        finally {
+            Pointer.release(stmt);
+        }
+
+        this.lastUpdateCount = Sqlite3.sqlite3_changes(this.conn.getHandle());
+
+        return this.lastResult != null;
     }
 
     @Override
@@ -183,7 +205,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public int getUpdateCount() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.lastUpdateCount;
     }
 
     @Override

@@ -95,7 +95,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             case SQLITE_DONE:
                 break;
             default:
-                Sqlite3.checkOk(rc);
+                Sqlite3.checkOk(rc, this.conn.getHandle());
                 break;
         }
 
@@ -106,7 +106,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     public void setNull(int i, int i2) throws SQLException {
         requireClosedResult();
 
-        Sqlite3.checkOk(Sqlite3.sqlite3_bind_null(this.stmt, checkParam(i)));
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_null(this.stmt, checkParam(i)),
+                this.conn.getHandle());
     }
 
     @Override
@@ -128,28 +129,32 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     public void setInt(int i, int val) throws SQLException {
         requireClosedResult();
 
-        Sqlite3.checkOk(Sqlite3.sqlite3_bind_int(this.stmt, checkParam(i), val));
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_int(this.stmt, checkParam(i), val),
+                this.conn.getHandle());
     }
 
     @Override
     public void setLong(int i, long val) throws SQLException {
         requireClosedResult();
 
-        Sqlite3.checkOk(Sqlite3.sqlite3_bind_int64(this.stmt, checkParam(i), val));
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_int64(this.stmt, checkParam(i), val),
+                this.conn.getHandle());
     }
 
     @Override
     public void setFloat(int i, float val) throws SQLException {
         requireClosedResult();
 
-        Sqlite3.checkOk(Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val));
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val),
+                this.conn.getHandle());
     }
 
     @Override
     public void setDouble(int i, double val) throws SQLException {
         requireClosedResult();
 
-        Sqlite3.checkOk(Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val));
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val),
+                this.conn.getHandle());
     }
 
     @Override
@@ -164,7 +169,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         requireClosedResult();
 
         Sqlite3.checkOk(Sqlite3.sqlite3_bind_text(
-                this.stmt, checkParam(i), Pointer.pointerToCString(s), -1, Sqlite3.SQLITE_TRANSIENT));
+                this.stmt, checkParam(i), Pointer.pointerToCString(s), -1, Sqlite3.SQLITE_TRANSIENT),
+                this.conn.getHandle());
     }
 
     @Override
@@ -180,7 +186,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 i,
                 ptr,
                 bytes.length,
-                Pointer.pointerTo(destructor)));
+                Pointer.pointerTo(destructor)),
+                this.conn.getHandle());
     }
 
     @Override
@@ -221,7 +228,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void clearParameters() throws SQLException {
-        Sqlite3.checkOk(Sqlite3.sqlite3_clear_bindings(this.stmt));
+        Sqlite3.checkOk(Sqlite3.sqlite3_clear_bindings(this.stmt), this.conn.getHandle());
     }
 
     @Override
@@ -273,7 +280,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 checkParam(i),
                 sb.getHandle(),
                 (int) sb.length(),
-                Pointer.pointerTo(destructor)));
+                Pointer.pointerTo(destructor)),
+                this.conn.getHandle());
     }
 
     @Override

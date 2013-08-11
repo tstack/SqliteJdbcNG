@@ -41,10 +41,13 @@ public class SqliteDriver implements Driver {
 
     static final int[] VERSION = { 0, 5 };
 
-    static {
+    public SqliteDriver() {
         LOGGER.log(Level.FINE,
-                "SQLite library version {0}",
-                Sqlite3.sqlite3_libversion().getCString());
+                "SQLite library version {0} -- {1}",
+                new Object[] {
+                        Sqlite3.sqlite3_libversion().getCString(),
+                        Sqlite3.sqlite3_sourceid().getCString()
+                });
     }
 
     @Override
