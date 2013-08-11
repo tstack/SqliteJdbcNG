@@ -42,7 +42,7 @@ public class SqliteDriver implements Driver {
     static final int[] VERSION = { 0, 5 };
 
     public SqliteDriver() {
-        LOGGER.log(Level.FINE,
+        LOGGER.log(Level.INFO,
                 "SQLite library version {0} -- {1}",
                 new Object[] {
                         Sqlite3.sqlite3_libversion().getCString(),

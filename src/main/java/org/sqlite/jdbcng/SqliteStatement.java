@@ -44,6 +44,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     protected final SqliteConnection conn;
     protected final List<String> batchList = new ArrayList<String>();
+    protected boolean closeOnCompletion;
     protected String lastQuery;
     protected SqliteResultSet lastResult;
     protected int lastUpdateCount;
@@ -67,6 +68,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     String getLastQuery() {
         return this.lastQuery;
+    }
+
+    void resultSetClosed(ResultSet rs) throws SQLException {
+        if (this.closeOnCompletion) {
+            this.close();
+        }
     }
 
     @Override
@@ -325,12 +332,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public void closeOnCompletion() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.closeOnCompletion = true;
     }
 
     @Override
     public boolean isCloseOnCompletion() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.closeOnCompletion;
     }
 
     @Override

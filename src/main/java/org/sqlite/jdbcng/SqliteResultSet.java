@@ -107,6 +107,8 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
             }
             this.lastColumn = -1;
             this.closed = true;
+
+            this.parent.resultSetClosed(this);
         }
     }
 

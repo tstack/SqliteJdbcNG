@@ -31,8 +31,8 @@ package org.sqlite.jdbcng;
 
 import org.bridj.Pointer;
 import org.sqlite.jdbcng.bridj.Sqlite3;
+import org.sqlite.jdbcng.internal.WeakRefWithEquals;
 
-import java.lang.ref.WeakReference;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +48,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     private final String url;
     private final Pointer<Sqlite3.Sqlite3Db> db;
     private final Properties properties;
-    private final List<WeakReference<Statement>> statements = new ArrayList<WeakReference<Statement>>();
+    private final List<WeakRefWithEquals<Statement>> statements = new ArrayList<>();
     private SqliteDatabaseMetadata metadata;
     private boolean readOnly;
     private boolean closed;
@@ -105,7 +105,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     private <T extends Statement> T trackStatement(T stmt) {
         synchronized (this.statements) {
-            this.statements.add(new WeakReference<Statement>(stmt));
+            this.statements.add(new WeakRefWithEquals<Statement>(stmt));
         }
 
         return stmt;
@@ -113,7 +113,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     void statementClosed(Statement stmt) {
         synchronized (this.statements) {
-            this.statements.remove(new WeakReference<Statement>(stmt));
+            this.statements.remove(new WeakRefWithEquals<>(stmt));
         }
     }
 
@@ -189,7 +189,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
              * the Connection object is called.
              */
             synchronized (this.statements) {
-                for (WeakReference<Statement> stmtRef : this.statements) {
+                while (!this.statements.isEmpty()) {
+                    WeakRefWithEquals<Statement> stmtRef = this.statements.remove(this.statements.size() - 1);
                     Statement stmt = stmtRef.get();
 
                     if (stmt == null)
