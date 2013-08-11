@@ -29,14 +29,23 @@
 
 package org.sqlite.jdbcng;
 
+import org.sqlite.jdbcng.bridj.Sqlite3;
+
 import java.sql.*;
 import java.util.Properties;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class SqliteDriver implements Driver {
     private static final Logger LOGGER = Logger.getLogger(SqliteDriver.class.getPackage().getName());
 
     static final int[] VERSION = { 0, 5 };
+
+    static {
+        LOGGER.log(Level.FINE,
+                "SQLite library version {0}",
+                Sqlite3.sqlite3_libversion().getCString());
+    }
 
     @Override
     public Connection connect(String url, Properties properties) throws SQLException {

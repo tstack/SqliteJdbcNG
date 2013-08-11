@@ -34,6 +34,7 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 
 public class SqliteResultSetMetadata implements ResultSetMetaData {
     private final SqliteResultSet rs;
@@ -89,6 +90,15 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
                 this.originNames[lpc] = "";
             }
         }
+    }
+
+    int findColumn(String label) throws SQLException {
+        for (int lpc = 0; lpc < this.columnNames.length; lpc++) {
+            if (this.columnNames[lpc].equals(label))
+                return lpc + 1;
+        }
+
+        throw new SQLNonTransientException("Result set does not contain label -- " + label);
     }
 
     @Override

@@ -38,6 +38,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.*;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 public class SqlitePreparedStatement extends SqliteStatement implements PreparedStatement {
@@ -60,6 +61,12 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             throw new IllegalArgumentException("Parameter index must be less than or equal to " + this.paramCount);
 
         return index;
+    }
+
+    void requireClosedResult() throws SQLException {
+        if (this.lastResult.isActive()) {
+            throw new SQLNonTransientException("Previous result set for statement must be closed before parameters can be rebound");
+        }
     }
 
     @Override
@@ -97,57 +104,73 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setNull(int i, int i2) throws SQLException {
-        Sqlite3.sqlite3_bind_null(this.stmt, checkParam(i));
+        requireClosedResult();
+
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_null(this.stmt, checkParam(i)));
     }
 
     @Override
     public void setBoolean(int i, boolean b) throws SQLException {
-        Sqlite3.sqlite3_bind_int(this.stmt, checkParam(i), b ? 1 : 0);
+        this.setInt(i, b ? 1 : 0);
     }
 
     @Override
     public void setByte(int i, byte b) throws SQLException {
-        Sqlite3.sqlite3_bind_int(this.stmt, checkParam(i), b);
+        this.setInt(i, b);
     }
 
     @Override
     public void setShort(int i, short s) throws SQLException {
-        Sqlite3.sqlite3_bind_int(this.stmt, checkParam(i), s);
+        this.setInt(i, s);
     }
 
     @Override
     public void setInt(int i, int val) throws SQLException {
-        Sqlite3.sqlite3_bind_int(this.stmt, checkParam(i), val);
+        requireClosedResult();
+
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_int(this.stmt, checkParam(i), val));
     }
 
     @Override
     public void setLong(int i, long val) throws SQLException {
-        Sqlite3.sqlite3_bind_int64(this.stmt, checkParam(i), val);
+        requireClosedResult();
+
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_int64(this.stmt, checkParam(i), val));
     }
 
     @Override
     public void setFloat(int i, float val) throws SQLException {
-        Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val);
+        requireClosedResult();
+
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val));
     }
 
     @Override
     public void setDouble(int i, double val) throws SQLException {
-        Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val);
+        requireClosedResult();
+
+        Sqlite3.checkOk(Sqlite3.sqlite3_bind_double(this.stmt, checkParam(i), val));
     }
 
     @Override
     public void setBigDecimal(int i, BigDecimal bigDecimal) throws SQLException {
+        requireClosedResult();
+
         this.setString(i, bigDecimal.toString());
     }
 
     @Override
     public void setString(int i, String s) throws SQLException {
+        requireClosedResult();
+
         Sqlite3.checkOk(Sqlite3.sqlite3_bind_text(
                 this.stmt, checkParam(i), Pointer.pointerToCString(s), -1, Sqlite3.SQLITE_TRANSIENT));
     }
 
     @Override
     public void setBytes(int i, byte[] bytes) throws SQLException {
+        requireClosedResult();
+
         Pointer<Byte> ptr = Pointer.pointerToBytes(bytes);
         Sqlite3.BufferDestructorBase destructor = new Sqlite3.BufferDestructor(ptr);
 
@@ -162,31 +185,37 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setDate(int i, Date date) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.setDate(i, date, null);
     }
 
     @Override
     public void setTime(int i, Time time) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.setTime(i, time, null);
     }
 
     @Override
     public void setTimestamp(int i, Timestamp timestamp) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.setTimestamp(i, timestamp, null);
     }
 
     @Override
     public void setAsciiStream(int i, InputStream inputStream, int i2) throws SQLException {
+        requireClosedResult();
+
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
     public void setUnicodeStream(int i, InputStream inputStream, int i2) throws SQLException {
+        requireClosedResult();
+
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
     public void setBinaryStream(int i, InputStream inputStream, int i2) throws SQLException {
+        requireClosedResult();
+
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
@@ -197,11 +226,15 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setObject(int i, Object o, int i2) throws SQLException {
+        requireClosedResult();
+
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
     public void setObject(int i, Object o) throws SQLException {
+        requireClosedResult();
+
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
@@ -217,16 +250,20 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setCharacterStream(int i, Reader reader, int i2) throws SQLException {
+        requireClosedResult();
+
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
     public void setRef(int i, Ref ref) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support REF values");
     }
 
     @Override
     public void setBlob(int i, Blob blob) throws SQLException {
+        requireClosedResult();
+
         SqliteBlob sb = (SqliteBlob)blob;
         Sqlite3.BufferDestructorBase destructor = new Sqlite3.BufferDestructor(sb.getHandle());
 
@@ -241,12 +278,14 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setClob(int i, Clob clob) throws SQLException {
+        requireClosedResult();
+
         //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
     public void setArray(int i, Array array) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support SQL arrays");
     }
 
     @Override
@@ -256,17 +295,53 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setDate(int i, Date date, Calendar calendar) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        requireClosedResult();
+
+        if (date == null) {
+            this.setNull(i, Types.DATE);
+            return;
+        }
+
+        SimpleDateFormat format = DATE_FORMATTER.get();
+
+        if (calendar == null)
+            calendar = DEFAULT_CALENDAR.get();
+        format.setCalendar(calendar);
+        this.setString(i, format.format(date));
     }
 
     @Override
     public void setTime(int i, Time time, Calendar calendar) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        requireClosedResult();
+
+        if (time == null) {
+            this.setNull(i, Types.TIME);
+            return;
+        }
+
+        SimpleDateFormat format = TIME_FORMATTER.get();
+
+        if (calendar == null)
+            calendar = DEFAULT_CALENDAR.get();
+        format.setCalendar(calendar);
+        this.setString(i, format.format(time));
     }
 
     @Override
     public void setTimestamp(int i, Timestamp timestamp, Calendar calendar) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        requireClosedResult();
+
+        if (timestamp == null) {
+            this.setNull(i, Types.TIME);
+            return;
+        }
+
+        SimpleDateFormat format = TS_FORMATTER.get();
+
+        if (calendar == null)
+            calendar = DEFAULT_CALENDAR.get();
+        format.setCalendar(calendar);
+        this.setString(i, format.format(timestamp));
     }
 
     @Override

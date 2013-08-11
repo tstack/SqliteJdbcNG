@@ -37,10 +37,11 @@ import java.sql.DatabaseMetaData;
 public class SqliteDatabaseMetadataTest extends TestCase {
     public void testGetSQLKeywords() throws Exception {
         SqliteDriver driver = new SqliteDriver();
-        Connection conn = driver.connect("jdbc:sqlite:", null);
-        DatabaseMetaData dmd = conn.getMetaData();
-        String[] words = dmd.getSQLKeywords().split(",");
+        try (Connection conn = driver.connect("jdbc:sqlite:", null)) {
+            DatabaseMetaData dmd = conn.getMetaData();
+            String[] words = dmd.getSQLKeywords().split(",");
 
-        assertEquals(words[0], "ABORT");
+            assertEquals(words[0], "ABORT");
+        }
     }
 }

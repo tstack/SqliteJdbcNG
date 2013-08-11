@@ -35,19 +35,27 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
+
+import static java.util.logging.Level.WARNING;
 
 public class SqliteStatement extends SqliteCommon implements Statement {
+    private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
+
     protected final SqliteConnection conn;
     protected final List<String> batchList = new ArrayList<String>();
     protected SqliteResultSet lastResult;
+    protected boolean closed;
 
     public SqliteStatement(SqliteConnection conn) {
         this.conn = conn;
     }
 
     Pointer<Sqlite3.Statement> requireAccess(Pointer<Sqlite3.Statement> stmt) throws SQLException {
+        stmt = Sqlite3.withReleaser(stmt);
+
         if (this.conn.isReadOnly() && Sqlite3.sqlite3_stmt_readonly(stmt) == 0) {
-            Sqlite3.sqlite3_finalize(stmt);
+            stmt.release();
             throw new SQLNonTransientException(
                     "Connection is in read-only mode, but statement is not read-only");
         }
@@ -82,11 +90,13 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
 
+        Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
+
         try {
-            if (Sqlite3.sqlite3_stmt_readonly(stmt_out.get()) != 0)
+            if (Sqlite3.sqlite3_stmt_readonly(stmt) != 0)
                 throw new SQLNonTransientException("SQL statement does not contain an update");
 
-            int rc = Sqlite3.sqlite3_step(stmt_out.get());
+            int rc = Sqlite3.sqlite3_step(stmt);
 
             switch (Sqlite3.ReturnCodes.valueOf(rc)) {
                 case SQLITE_OK:
@@ -98,7 +108,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
             }
         }
         finally {
-            Sqlite3.sqlite3_finalize(stmt_out.get());
+            stmt.release();
         }
 
         return Sqlite3.sqlite3_changes(this.conn.getHandle());
@@ -111,8 +121,10 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
             this.lastResult.close();
             this.lastResult = null;
-            Sqlite3.sqlite3_finalize(stmt);
+            stmt.release();
         }
+
+        this.closed = true;
     }
 
     @Override
@@ -276,7 +288,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public boolean isClosed() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.closed;
     }
 
     @Override
@@ -311,6 +323,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     protected void finalize() throws Throwable {
-        this.close();
+        if (!this.closed) {
+            LOGGER.log(WARNING,
+                    "SQLite database statement was not explicitly closed -- {0}",
+                    this.conn.getURL());
+
+            this.close();
+        }
     }
 }

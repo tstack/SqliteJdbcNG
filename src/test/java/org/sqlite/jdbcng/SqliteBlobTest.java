@@ -80,7 +80,7 @@ public class SqliteBlobTest extends TestCase {
         Connection conn = driver.connect("jdbc:sqlite:", null);
         Statement stmt = conn.createStatement();
 
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS blob_test (b1 BLOB);");
+        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS blob_test (b1 BLOB)");
 
         PreparedStatement ps = conn.prepareStatement("INSERT INTO blob_test VALUES (?)");
 

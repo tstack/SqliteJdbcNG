@@ -50,6 +50,30 @@ public class Sqlite3 {
         }
     }
 
+    public static class StatementReleaser implements Pointer.Releaser {
+        @Override
+        public void release(Pointer<?> stmt) {
+            sqlite3_finalize(stmt.as(Statement.class));
+        }
+    }
+
+    private static final StatementReleaser STATEMENT_RELEASER = new StatementReleaser();
+
+    public static class DbReleaser implements Pointer.Releaser {
+
+        @Override
+        public void release(Pointer<?> db) {
+            try {
+                sqlite3_close_v2(db.as(Sqlite3Db.class));
+            }
+            catch (UnsatisfiedLinkError e) {
+                sqlite3_close(db.as(Sqlite3Db.class));
+            }
+        }
+    }
+
+    private static final DbReleaser DB_RELEASER = new DbReleaser();
+
     public static class Sqlite3FreeCallback extends Callback<Sqlite3FreeCallback> {
         public void apply(Pointer<Byte> mem) {
             sqlite3_free(mem);
@@ -87,6 +111,8 @@ public class Sqlite3 {
 
     public static native int sqlite3_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_open(Pointer<Byte> filename, Pointer<Pointer<Sqlite3Db>> db);
+    public static native int sqlite3_close(Pointer<Sqlite3Db> db);
+    public static native int sqlite3_close_v2(Pointer<Sqlite3Db> db);
 
     public static native int sqlite3_get_autocommit(Pointer<Sqlite3Db> db);
     public static native Pointer<Byte> sqlite3_errmsg(Pointer<Sqlite3Db> db);
@@ -148,6 +174,26 @@ public class Sqlite3 {
 
     public static final Pointer<BufferDestructorBase> SQLITE_STATIC = null;
     public static final Pointer<BufferDestructorBase> SQLITE_TRANSIENT = constantFunctionValue(-1);
+
+    public static Pointer<Statement> withReleaser(Pointer<Statement> stmt) {
+        try {
+            return Pointer.pointerToAddress(stmt.getPeer(), Statement.class, STATEMENT_RELEASER);
+        }
+        catch (Throwable e) {
+            STATEMENT_RELEASER.release(stmt);
+            throw e;
+        }
+    }
+
+    public static Pointer<Sqlite3Db> withDbReleaser(Pointer<Sqlite3Db> db) {
+        try {
+            return Pointer.pointerToAddress(db.getPeer(), Sqlite3Db.class, DB_RELEASER);
+        }
+        catch (Throwable e) {
+            DB_RELEASER.release(db);
+            throw e;
+        }
+    }
 
     public static String mprintf(String fmt, Object... varargs) {
         Object[] xargs = new Object[varargs.length];

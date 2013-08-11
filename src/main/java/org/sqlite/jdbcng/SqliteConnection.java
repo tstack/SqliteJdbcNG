@@ -39,13 +39,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class SqliteConnection extends SqliteCommon implements Connection {
+    private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
 
     private final String url;
     private final Pointer<Sqlite3.Sqlite3Db> db;
     private final Properties properties;
-    private final List<WeakReference> statements = new ArrayList<WeakReference>();
+    private final List<WeakReference<Statement>> statements = new ArrayList<WeakReference<Statement>>();
     private SqliteDatabaseMetadata metadata;
     private boolean readOnly;
     private boolean closed;
@@ -55,11 +58,11 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         SqliteUrl sqliteUrl = new SqliteUrl(url);
         int rc = Sqlite3.sqlite3_open(Pointer.pointerToCString(sqliteUrl.getPath()), db_out);
 
-        Sqlite3.checkOk(rc);
-
         this.url = url;
-        this.db = db_out.get();
+        this.db = Sqlite3.withDbReleaser(db_out.get());
         this.properties = properties;
+
+        Sqlite3.checkOk(rc);
     }
 
     void requireResultSetType(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
@@ -158,11 +161,13 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                     Statement stmt = stmtRef.get();
 
                     if (stmt == null)
-                        continue;;
+                        continue;
 
                     stmt.close();
                 }
             }
+
+            this.db.release();
             this.closed = true;
         }
     }
@@ -299,7 +304,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         requireResultSetType(resultSetType, resultSetConcurrency, resultSetHoldability);
 
         synchronized (this.statements) {
-            this.statements.add(new WeakReference(retval));
+            this.statements.add(new WeakReference<>(retval));
         }
 
         return retval;
@@ -430,5 +435,16 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     @Override
     public boolean isWrapperFor(Class<?> aClass) throws SQLException {
         return false;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        if (!this.isClosed()) {
+            LOGGER.log(Level.WARNING,
+                    "SQLite database connection was not explicitly closed -- {0}",
+                    this.url);
+
+            this.close();
+        }
     }
 }

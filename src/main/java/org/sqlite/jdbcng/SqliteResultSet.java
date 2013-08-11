@@ -34,6 +34,7 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 
 import java.io.InputStream;
 import java.io.Reader;
+import java.lang.ref.WeakReference;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -47,9 +48,10 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private final SqliteStatement parent;
     private final Pointer<Sqlite3.Statement> stmt;
     private final int columnCount;
-    private final List<Blob> blobList = new ArrayList<Blob>();
+    private final List<WeakReference<Blob>> blobList = new ArrayList<>();
     private SqliteResultSetMetadata metadata;
     private boolean closed;
+    private int rowNumber = -1;
     private int lastColumn;
 
     public SqliteResultSet(SqliteStatement parent, Pointer<Sqlite3.Statement> stmt) {
@@ -62,18 +64,29 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         return this.stmt;
     }
 
+    boolean isActive() {
+        return this.rowNumber >= 0;
+    }
+
     @Override
     public synchronized boolean next() throws SQLException {
         int rc;
 
         this.clearWarnings();
 
-        for (Blob blob : this.blobList) {
+        for (WeakReference<Blob> blobRef : this.blobList) {
+            Blob blob = blobRef.get();
+
+            if (blob == null) {
+                continue;
+            }
+
             blob.free();
         }
         this.blobList.clear();
 
         rc = Sqlite3.sqlite3_step(this.stmt);
+        this.rowNumber += 1;
         switch (Sqlite3.ReturnCodes.valueOf(rc)) {
             case SQLITE_ROW:
                 return true;
@@ -88,7 +101,10 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     @Override
     public void close() throws SQLException {
         if (!this.closed) {
-            Sqlite3.checkOk(Sqlite3.sqlite3_reset(this.stmt));
+            if (this.rowNumber >= 0) {
+                Sqlite3.checkOk(Sqlite3.sqlite3_reset(this.stmt));
+                this.rowNumber = -1;
+            }
             this.lastColumn = -1;
             this.closed = true;
         }
@@ -191,7 +207,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public InputStream getAsciiStream(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getBinaryStream(i);
     }
 
     @Override
@@ -206,87 +222,87 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public String getString(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getString(this.findColumn(s));
     }
 
     @Override
     public boolean getBoolean(String s) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getBoolean(this.findColumn(s));
     }
 
     @Override
     public byte getByte(String s) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getByte(this.findColumn(s));
     }
 
     @Override
     public short getShort(String s) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getShort(this.findColumn(s));
     }
 
     @Override
     public int getInt(String s) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getInt(this.findColumn(s));
     }
 
     @Override
     public long getLong(String s) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getLong(this.findColumn(s));
     }
 
     @Override
     public float getFloat(String s) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getFloat(this.findColumn(s));
     }
 
     @Override
     public double getDouble(String s) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getDouble(this.findColumn(s));
     }
 
     @Override
     public BigDecimal getBigDecimal(String s, int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getBigDecimal(this.findColumn(s), i);
     }
 
     @Override
     public byte[] getBytes(String s) throws SQLException {
-        return new byte[0];  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getBytes(this.findColumn(s));
     }
 
     @Override
     public Date getDate(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getDate(this.findColumn(s));
     }
 
     @Override
     public Time getTime(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getTime(this.findColumn(s));
     }
 
     @Override
     public Timestamp getTimestamp(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getTimestamp(this.findColumn(s));
     }
 
     @Override
     public InputStream getAsciiStream(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getAsciiStream(this.findColumn(s));
     }
 
     @Override
     public InputStream getUnicodeStream(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getUnicodeStream(this.findColumn(s));
     }
 
     @Override
     public InputStream getBinaryStream(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getBinaryStream(this.findColumn(s));
     }
 
     @Override
     public String getCursorName() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support named cursors");
     }
 
     @Override
@@ -304,12 +320,12 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Object getObject(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getObject(this.findColumn(s));
     }
 
     @Override
     public int findColumn(String s) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return ((SqliteResultSetMetadata)this.getMetaData()).findColumn(s);
     }
 
     @Override
@@ -319,7 +335,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Reader getCharacterStream(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getCharacterStream(this.findColumn(s));
     }
 
     @Override
@@ -405,13 +421,14 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     }
 
     @Override
-    public void setFetchDirection(int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void setFetchDirection(int direction) throws SQLException {
+        if (direction != FETCH_FORWARD)
+            throw new SQLFeatureNotSupportedException("SQLite only supports FETCH_FORWARD result sets");
     }
 
     @Override
     public int getFetchDirection() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return FETCH_FORWARD;
     }
 
     @Override
@@ -686,7 +703,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Ref getRef(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support REF values");
     }
 
     @Override
@@ -695,7 +712,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         int len = Sqlite3.sqlite3_column_bytes(this.stmt, checkColumn(i));
         SqliteBlob retval = new SqliteBlob(ptr.validBytes(len));
 
-        this.blobList.add(retval);
+        this.blobList.add(new WeakReference<Blob>(retval));
 
         return retval;
     }
@@ -717,7 +734,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Ref getRef(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support REF values");
     }
 
     @Override

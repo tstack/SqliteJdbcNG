@@ -31,10 +31,49 @@ package org.sqlite.jdbcng;
 
 import java.sql.SQLException;
 import java.sql.SQLWarning;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.logging.Logger;
 
 public class SqliteCommon {
     private static final Logger LOGGER = Logger.getLogger(SqliteCommon.class.getName());
+
+    // SimpleDateFormat is not thread-safe, so give one to each thread
+    protected static final ThreadLocal<Calendar> DEFAULT_CALENDAR = new ThreadLocal<Calendar>() {
+        @Override
+        protected Calendar initialValue()
+        {
+            return new GregorianCalendar();
+        }
+    };
+
+    // SimpleDateFormat is not thread-safe, so give one to each thread
+    protected static final ThreadLocal<SimpleDateFormat> DATE_FORMATTER = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue()
+        {
+            return new SimpleDateFormat("yyyy-MM-dd");
+        }
+    };
+
+    // SimpleDateFormat is not thread-safe, so give one to each thread
+    protected static final ThreadLocal<SimpleDateFormat> TIME_FORMATTER = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue()
+        {
+            return new SimpleDateFormat("HH:mm:ss");
+        }
+    };
+
+    // SimpleDateFormat is not thread-safe, so give one to each thread
+    protected static final ThreadLocal<SimpleDateFormat> TS_FORMATTER = new ThreadLocal<SimpleDateFormat>() {
+        @Override
+        protected SimpleDateFormat initialValue()
+        {
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+        }
+    };
 
     protected SQLWarning warnings;
 

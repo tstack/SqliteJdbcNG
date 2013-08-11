@@ -40,6 +40,7 @@ import java.sql.SQLNonTransientException;
 
 public class SqliteBlob implements Blob {
     private Pointer<Byte> ptr;
+    private boolean shared;
     private boolean freed;
 
     public SqliteBlob(Pointer<Byte> ptr) {
@@ -51,6 +52,7 @@ public class SqliteBlob implements Blob {
     }
 
     Pointer<Byte> getHandle() {
+        this.shared = true;
         return this.ptr;
     }
 
@@ -213,7 +215,9 @@ public class SqliteBlob implements Blob {
 
     @Override
     public void free() throws SQLException {
-        Pointer.release(this.ptr);
+        if (!this.shared) {
+            Pointer.release(this.ptr);
+        }
         this.ptr = null;
         this.freed = true;
     }
