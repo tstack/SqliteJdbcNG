@@ -43,6 +43,7 @@ import java.util.Calendar;
 
 public class SqlitePreparedStatement extends SqliteStatement implements PreparedStatement {
     private final Pointer<Sqlite3.Statement> stmt;
+    private ParameterMetaData metadata;
     private final int paramCount;
 
     public SqlitePreparedStatement(SqliteConnection conn, Pointer<Sqlite3.Statement> stmt)
@@ -363,8 +364,11 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     }
 
     @Override
-    public ParameterMetaData getParameterMetaData() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public synchronized ParameterMetaData getParameterMetaData() throws SQLException {
+        if (this.metadata == null)
+            this.metadata = new SqliteParameterMetadata(this, this.stmt);
+
+        return this.metadata;
     }
 
     @Override
