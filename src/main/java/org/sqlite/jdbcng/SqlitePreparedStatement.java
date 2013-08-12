@@ -233,17 +233,51 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     }
 
     @Override
-    public void setObject(int i, Object o, int i2) throws SQLException {
-        requireClosedResult();
-
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void setObject(int i, Object o, int targetSqlType) throws SQLException {
+        this.setObject(i, o, targetSqlType, -1);
     }
 
     @Override
     public void setObject(int i, Object o) throws SQLException {
-        requireClosedResult();
+        if (o == null) {
+            this.setNull(i, Types.OTHER);
+            return;
+        }
 
-        //To change body of implemented methods use File | Settings | File Templates.
+        if (o instanceof Long)
+            this.setLong(i, (Long) o);
+        else if (o instanceof byte[])
+            this.setBytes(i, (byte[]) o);
+        else if (o instanceof Blob)
+            this.setBlob(i, (Blob) o);
+        else if (o instanceof Boolean)
+            this.setBoolean(i, (Boolean) o);
+        else if (o instanceof Byte)
+            this.setByte(i, (Byte)o);
+        else if (o instanceof Character)
+            this.setObject(i, o, Types.CHAR);
+        else if (o instanceof Clob)
+            this.setClob(i, (Clob) o);
+        else if (o instanceof Date)
+            this.setDate(i, (Date) o);
+        else if (o instanceof BigDecimal)
+            this.setBigDecimal(i, (BigDecimal) o);
+        else if (o instanceof Double)
+            this.setDouble(i, (Double) o);
+        else if (o instanceof Float)
+            this.setFloat(i, (Float) o);
+        else if (o instanceof Integer)
+            this.setInt(i, (Integer)o);
+        else if (o instanceof Time)
+            this.setTime(i, (Time)o);
+        else if (o instanceof Timestamp)
+            this.setTimestamp(i, (Timestamp)o);
+        else if (o instanceof String)
+            this.setString(i, (String)o);
+        else if (o instanceof InputStream)
+            this.setBinaryStream(i, (InputStream)o);
+        else
+            throw new SQLFeatureNotSupportedException("");
     }
 
     @Override
@@ -412,8 +446,124 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     }
 
     @Override
-    public void setObject(int i, Object o, int i2, int i3) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void setObject(int i, Object o, int targetSqlType, int scaleOrLength) throws SQLException {
+        if (o == null) {
+            this.setNull(i, targetSqlType);
+            return;
+        }
+
+        switch (targetSqlType) {
+            case Types.ARRAY:
+            case Types.DATALINK:
+            case Types.JAVA_OBJECT:
+            case Types.OTHER:
+            case Types.REF:
+            case Types.SQLXML:
+            case Types.STRUCT:
+                throw new SQLFeatureNotSupportedException("SQLite does not support the given type");
+            case Types.NULL:
+                this.setNull(i, targetSqlType);
+                break;
+            case Types.BIGINT:
+                if (o instanceof Number)
+                    this.setLong(i, ((Number)o).longValue());
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.BLOB:
+            case Types.BINARY:
+            case Types.VARBINARY:
+                if (o instanceof InputStream)
+                    this.setBinaryStream(i, (InputStream)o, scaleOrLength);
+                else if (o instanceof byte[])
+                    this.setBytes(i, (byte[])o);
+                else if (o instanceof Blob)
+                    this.setBlob(i, (Blob)o);
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.BIT:
+            case Types.BOOLEAN:
+                if (o instanceof Boolean)
+                    this.setBoolean(i, ((Boolean)o));
+                else if (o instanceof Number)
+                    this.setBoolean(i, ((Number)o).intValue() != 0);
+                else
+                    throw new SQLNonTransientException("Conversion to boolean not support for value -- " + o);
+                break;
+            case Types.CHAR:
+                if (o instanceof Character)
+                    this.setString(i, o.toString());
+                else
+                    throw new SQLNonTransientException("Conversion to boolean not support for value -- " + o);
+                break;
+            case Types.CLOB:
+                if (o instanceof InputStream)
+                    this.setBinaryStream(i, (InputStream) o, scaleOrLength);
+                else if (o instanceof byte[])
+                    this.setBytes(i, (byte[])o);
+                else if (o instanceof Clob)
+                    this.setClob(i, (Clob) o);
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.DATE:
+                if (o instanceof Date)
+                    this.setDate(i, (Date)o);
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.DECIMAL:
+                if (o instanceof BigDecimal)
+                    this.setBigDecimal(i, (BigDecimal)o);
+                else if (o instanceof Number)
+                    this.setDouble(i, ((Number) o).doubleValue());
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.FLOAT:
+                if (o instanceof Number)
+                    this.setFloat(i, ((Number)o).floatValue());
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.REAL:
+            case Types.DOUBLE:
+                if (o instanceof Number)
+                    this.setDouble(i, ((Number)o).doubleValue());
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.INTEGER:
+            case Types.TINYINT:
+                if (o instanceof Number)
+                    this.setInt(i, ((Number)o).intValue());
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.NUMERIC:
+                this.setString(i, o.toString());
+                break;
+            case Types.TIME:
+                if (o instanceof Time)
+                    this.setTime(i, (Time)o);
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.TIMESTAMP:
+                if (o instanceof Timestamp)
+                    this.setTimestamp(i, (Timestamp)o);
+                else if (o instanceof Date)
+                    this.setTimestamp(i, new Timestamp(((Date)o).getTime()));
+                else
+                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                break;
+            case Types.VARCHAR:
+                this.setString(i, o.toString());
+                break;
+            default:
+                throw new SQLFeatureNotSupportedException("SQLite does not support the given type");
+        }
     }
 
     @Override
