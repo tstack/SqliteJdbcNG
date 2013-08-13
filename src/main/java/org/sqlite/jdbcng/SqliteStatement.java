@@ -54,6 +54,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         this.conn = conn;
     }
 
+    void requireOpened() throws SQLException {
+        if (this.closed) {
+            throw new SQLNonTransientException("Statement is closed for business");
+        }
+    }
+
     Pointer<Sqlite3.Statement> requireAccess(Pointer<Sqlite3.Statement> stmt) throws SQLException {
         stmt = Sqlite3.withReleaser(stmt);
 
@@ -85,6 +91,8 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public ResultSet executeQuery(String s) throws SQLException {
+        requireOpened();
+
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
         this.clearWarnings();
@@ -95,7 +103,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
                 this.conn.getHandle());
 
-        this.replaceResultSet(new SqliteResultSet(this, requireAccess(stmt_out.get())));
+        Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
+
+        if (Sqlite3.sqlite3_stmt_readonly(stmt) == 0)
+            throw new SQLNonTransientException("SQL statement is not a query");
+
+        this.replaceResultSet(new SqliteResultSet(this, stmt));
 
         return this.lastResult;
     }
@@ -167,6 +180,8 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public boolean execute(String s) throws SQLException {
+        requireOpened();
+
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
         if (this.conn.isReadOnly()) {
@@ -214,56 +229,77 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public ResultSet getResultSet() throws SQLException {
+        requireOpened();
+
         return this.lastResult;
     }
 
     @Override
     public int getUpdateCount() throws SQLException {
+        requireOpened();
+
         return this.lastUpdateCount;
     }
 
     @Override
     public boolean getMoreResults() throws SQLException {
+        requireOpened();
+
         return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
-    public void setFetchDirection(int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void setFetchDirection(int direction) throws SQLException {
+        requireOpened();
+
+        if (direction != ResultSet.FETCH_FORWARD)
+            throw new SQLFeatureNotSupportedException("SQLite result sets only support forward fetching");
     }
 
     @Override
     public int getFetchDirection() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return ResultSet.FETCH_FORWARD;
     }
 
     @Override
     public void setFetchSize(int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
     }
 
     @Override
     public int getFetchSize() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return 0;
     }
 
     @Override
     public int getResultSetConcurrency() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return ResultSet.CONCUR_READ_ONLY;
     }
 
     @Override
     public int getResultSetType() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return ResultSet.TYPE_FORWARD_ONLY;
     }
 
     @Override
     public void addBatch(String s) throws SQLException {
+        requireOpened();
+
         this.batchList.add(s);
     }
 
     @Override
     public void clearBatch() throws SQLException {
+        requireOpened();
+
         this.batchList.clear();
     }
 
@@ -274,52 +310,58 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public Connection getConnection() throws SQLException {
+        requireOpened();
+
         return this.conn;
     }
 
     @Override
     public boolean getMoreResults(int i) throws SQLException {
+        requireOpened();
+
         return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override
     public ResultSet getGeneratedKeys() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support generated keys");
     }
 
     @Override
     public int executeUpdate(String s, int i) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
     }
 
     @Override
     public int executeUpdate(String s, int[] ints) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
     }
 
     @Override
     public int executeUpdate(String s, String[] strings) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
     }
 
     @Override
     public boolean execute(String s, int i) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
     }
 
     @Override
     public boolean execute(String s, int[] ints) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
     }
 
     @Override
     public boolean execute(String s, String[] strings) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
     }
 
     @Override
     public int getResultSetHoldability() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
     @Override
@@ -339,11 +381,15 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public void closeOnCompletion() throws SQLException {
+        requireOpened();
+
         this.closeOnCompletion = true;
     }
 
     @Override
     public boolean isCloseOnCompletion() throws SQLException {
+        requireOpened();
+
         return this.closeOnCompletion;
     }
 
@@ -366,5 +412,10 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
             this.close();
         }
+    }
+
+    @Override
+    public String toString() {
+        return this.lastQuery;
     }
 }

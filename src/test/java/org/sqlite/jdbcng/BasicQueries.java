@@ -80,13 +80,6 @@ public class BasicQueries {
 
         assertEquals(1, rc);
 
-        try {
-            conn.commit();
-            fail("commit should throw an exception since we're in auto-commit mode");
-        }
-        catch (SQLException e) {
-        }
-
         assertEquals(true, conn.getAutoCommit());
         assertEquals(false, conn.isReadOnly());
 

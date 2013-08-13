@@ -142,10 +142,15 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
-        requireOpened();
+        boolean currentValue = this.getAutoCommit();
 
-        if (!autoCommit) {
-            this.executeCanned("BEGIN");
+        if (currentValue != autoCommit) {
+            if (autoCommit) {
+                this.executeCanned("COMMIT");
+            }
+            else {
+                this.executeCanned("BEGIN");
+            }
         }
     }
 
@@ -158,26 +163,14 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public void commit() throws SQLException {
-        boolean autoCommit = this.getAutoCommit();
-
-        try {
-            this.executeCanned("COMMIT");
-        }
-        finally {
-            this.setAutoCommit(autoCommit);
-        }
+        this.executeCanned("COMMIT");
+        this.setAutoCommit(false);
     }
 
     @Override
     public void rollback() throws SQLException {
-        boolean autoCommit = this.getAutoCommit();
-
-        try {
-            this.executeCanned("ROLLBACK");
-        }
-        finally {
-            this.setAutoCommit(autoCommit);
-        }
+        this.executeCanned("ROLLBACK");
+        this.setAutoCommit(false);
     }
 
     @Override
@@ -199,7 +192,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                     if (!stmt.isClosed()) {
                         LOGGER.log(Level.WARNING,
                                 "Statement was not explicitly closed -- {0}",
-                                new Object[] { ((SqliteStatement)stmt).getLastQuery() });
+                                new Object[] { stmt.toString() });
                         stmt.close();
                     }
                 }
