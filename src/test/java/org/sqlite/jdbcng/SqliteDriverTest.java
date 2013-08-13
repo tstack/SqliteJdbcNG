@@ -42,6 +42,7 @@ import java.sql.SQLNonTransientConnectionException;
 import java.sql.SQLTransientConnectionException;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class SqliteDriverTest {
     @Rule
@@ -107,5 +108,15 @@ public class SqliteDriverTest {
         try (Connection conn = driver.connect("jdbc:sqlite:", null)) {
             assertEquals(null, conn.getWarnings());
         }
+    }
+
+    @Test
+    public void testCompliance() throws Exception {
+        assertEquals(false, this.driver.jdbcCompliant());
+    }
+
+    @Test
+    public void testLogger() throws Exception {
+        assertNotNull(this.driver.getParentLogger());
     }
 }

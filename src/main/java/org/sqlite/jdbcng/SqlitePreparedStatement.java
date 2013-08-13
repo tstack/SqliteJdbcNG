@@ -71,6 +71,21 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     }
 
     @Override
+    public ResultSet executeQuery(String s) throws SQLException {
+        throw new SQLNonTransientException("Use the no-argument version of executeQuery() to execute a prepared statement");
+    }
+
+    @Override
+    public int executeUpdate(String s) throws SQLException {
+        throw new SQLNonTransientException("Use the no-argument version of executeUpdate() to execute a prepared statement");
+    }
+
+    @Override
+    public boolean execute(String s) throws SQLException {
+        throw new SQLNonTransientException("Use the no-argument version of execute() to execute a prepared statement");
+    }
+
+    @Override
     public ResultSet executeQuery() throws SQLException {
         this.lastResult.close();
 

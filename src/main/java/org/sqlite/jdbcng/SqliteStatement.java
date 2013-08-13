@@ -43,7 +43,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
 
     protected final SqliteConnection conn;
-    protected final List<String> batchList = new ArrayList<String>();
+    protected final List<String> batchList = new ArrayList<>();
     protected boolean closeOnCompletion;
     protected String lastQuery;
     protected SqliteResultSet lastResult;
@@ -70,10 +70,17 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         return this.lastQuery;
     }
 
-    void resultSetClosed(ResultSet rs) throws SQLException {
+    void resultSetClosed() throws SQLException {
         if (this.closeOnCompletion) {
             this.close();
         }
+    }
+
+    void replaceResultSet(SqliteResultSet rs) throws SQLException {
+        if (this.lastResult != null) {
+            this.lastResult.close();
+        }
+        this.lastResult = rs;
     }
 
     @Override
@@ -88,7 +95,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                 Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
                 this.conn.getHandle());
 
-        this.lastResult = new SqliteResultSet(this, requireAccess(stmt_out.get()));
+        this.replaceResultSet(new SqliteResultSet(this, requireAccess(stmt_out.get())));
 
         return this.lastResult;
     }
@@ -189,11 +196,11 @@ public class SqliteStatement extends SqliteCommon implements Statement {
             }
 
             if (Sqlite3.sqlite3_stmt_readonly(stmt) != 0) {
-                this.lastResult = new SqliteResultSet(this, stmt);
+                this.replaceResultSet(new SqliteResultSet(this, stmt));
                 stmt = null;
             }
             else {
-                this.lastResult = null;
+                this.replaceResultSet(null);
             }
         }
         finally {
@@ -207,7 +214,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public ResultSet getResultSet() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.lastResult;
     }
 
     @Override
