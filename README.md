@@ -1,5 +1,6 @@
 
 [![Build Status](https://travis-ci.org/tstack/SqliteJdbcNG.png)](https://travis-ci.org/tstack/SqliteJdbcNG)
+[![Coverage Status](https://coveralls.io/repos/tstack/SqliteJdbcNG/badge.png?branch=master)](https://coveralls.io/r/tstack/SqliteJdbcNG?branch=master)
 
 SqliteJdbcNG
 ============
