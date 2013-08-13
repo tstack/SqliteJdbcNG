@@ -41,6 +41,25 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <name>SqliteJdbcNG</name>
+    <description>An SQLite JDBC driver.</description>
+    <url>https://github.com/tstack/SqliteJdbcNG</url>
+    <inceptionYear>2013</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>BSD</name>
+            <url>http://opensource.org/licenses/BSD-2-Clause</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+	<scm>
+		<connection>scm:git:git://github.com/tstack/SqliteJdbcNG.git</connection>
+		<developerConnection>scm:git:git://github.com/tstack/SqliteJdbcNG.git</developerConnection>
+		<url>https://github.com/tstack/SqliteJdbcNG</url>
+	</scm>
+
     <build>
         <plugins>
             <plugin>
