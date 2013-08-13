@@ -99,7 +99,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     }
 
     @Override
-    public void close() throws SQLException {
+    public synchronized void close() throws SQLException {
         if (!this.closed) {
             if (this.rowNumber >= 0) {
                 Sqlite3.checkOk(Sqlite3.sqlite3_reset(this.stmt));

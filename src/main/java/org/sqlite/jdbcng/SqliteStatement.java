@@ -184,11 +184,6 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
-        if (this.conn.isReadOnly()) {
-            throw new SQLNonTransientException(
-                    "Updates cannot be performed while the connection is in read-only mode.");
-        }
-
         this.clearWarnings();
 
         this.lastQuery = s;

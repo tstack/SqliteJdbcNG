@@ -99,6 +99,15 @@ public class Sqlite3 {
         }
     }
 
+    public static abstract class AuthCallbackBase extends Callback<AuthCallbackBase> {
+        public abstract int apply(Pointer<Void> context,
+                                  int actionCode,
+                                  Pointer<Byte> arg1,
+                                  Pointer<Byte> arg2,
+                                  Pointer<Byte> arg3,
+                                  Pointer<Byte> arg4);
+    }
+
     public static class Sqlite3Db extends StructObject {
     }
 
@@ -116,6 +125,10 @@ public class Sqlite3 {
     public static native int sqlite3_open(Pointer<Byte> filename, Pointer<Pointer<Sqlite3Db>> db);
     public static native int sqlite3_close(Pointer<Sqlite3Db> db);
     public static native int sqlite3_close_v2(Pointer<Sqlite3Db> db);
+
+    public static native int sqlite3_set_authorizer(Pointer<Sqlite3Db> db,
+                                                    Pointer<AuthCallbackBase> cb,
+                                                    Pointer<Void> userData);
 
     public static native int sqlite3_get_autocommit(Pointer<Sqlite3Db> db);
     public static native Pointer<Byte> sqlite3_errmsg(Pointer<Sqlite3Db> db);
@@ -237,6 +250,92 @@ public class Sqlite3 {
         return builder.toString();
     }
 
+    public enum ActionCode {
+        SQLITE_CREATE_INDEX(1),   /* Index Name      Table Name      */
+        SQLITE_CREATE_TABLE(2),   /* Table Name      NULL            */
+        SQLITE_CREATE_TEMP_INDEX(3),   /* Index Name      Table Name      */
+        SQLITE_CREATE_TEMP_TABLE(4),   /* Table Name      NULL            */
+        SQLITE_CREATE_TEMP_TRIGGER(5),   /* Trigger Name    Table Name      */
+        SQLITE_CREATE_TEMP_VIEW(6),   /* View Name       NULL            */
+        SQLITE_CREATE_TRIGGER(7),   /* Trigger Name    Table Name      */
+        SQLITE_CREATE_VIEW(8),   /* View Name       NULL            */
+        SQLITE_DELETE(9),   /* Table Name      NULL            */
+        SQLITE_DROP_INDEX(10),   /* Index Name      Table Name      */
+        SQLITE_DROP_TABLE(11),   /* Table Name      NULL            */
+        SQLITE_DROP_TEMP_INDEX(12),   /* Index Name      Table Name      */
+        SQLITE_DROP_TEMP_TABLE(13),   /* Table Name      NULL            */
+        SQLITE_DROP_TEMP_TRIGGER(14),   /* Trigger Name    Table Name      */
+        SQLITE_DROP_TEMP_VIEW(15),   /* View Name       NULL            */
+        SQLITE_DROP_TRIGGER(16),   /* Trigger Name    Table Name      */
+        SQLITE_DROP_VIEW(17),   /* View Name       NULL            */
+        SQLITE_INSERT(18),   /* Table Name      NULL            */
+        SQLITE_PRAGMA(19),   /* Pragma Name     1st arg or NULL */
+        SQLITE_READ(20),   /* Table Name      Column Name     */
+        SQLITE_SELECT(21),   /* NULL            NULL            */
+        SQLITE_TRANSACTION(22),   /* Operation       NULL            */
+        SQLITE_UPDATE(23),   /* Table Name      Column Name     */
+        SQLITE_ATTACH(24),   /* Filename        NULL            */
+        SQLITE_DETACH(25),   /* Database Name   NULL            */
+        SQLITE_ALTER_TABLE(26),   /* Database Name   Table Name      */
+        SQLITE_REINDEX(27),   /* Index Name      NULL            */
+        SQLITE_ANALYZE(28),   /* Table Name      NULL            */
+        SQLITE_CREATE_VTABLE(29),   /* Table Name      Module Name     */
+        SQLITE_DROP_VTABLE(30),   /* Table Name      Module Name     */
+        SQLITE_FUNCTION(31),   /* NULL            Function Name   */
+        SQLITE_SAVEPOINT(32),   /* Operation       Savepoint Name  */
+        SQLITE_COPY(0);   /* No longer used */
+
+        private static final HashMap<Integer, ActionCode> VALUE_TO_ENUM = new HashMap<>();
+
+        static {
+            for (ActionCode rc : values()) {
+                VALUE_TO_ENUM.put(rc.value, rc);
+            }
+        }
+
+        public static ActionCode valueOf(int value) {
+            return VALUE_TO_ENUM.get(value);
+        }
+
+        private final int value;
+
+        ActionCode(int value_in) {
+            this.value = value_in;
+        }
+
+        public int value() {
+            return this.value;
+        }
+    };
+
+    public enum AuthResult {
+        SQLITE_OK(0),
+        SQLITE_DENY(1),
+        SQLITE_IGNORE(2);
+
+        private static final HashMap<Integer, AuthResult> VALUE_TO_ENUM = new HashMap<>();
+
+        static {
+            for (AuthResult rc : values()) {
+                VALUE_TO_ENUM.put(rc.value, rc);
+            }
+        }
+
+        public static AuthResult valueOf(int value) {
+            return VALUE_TO_ENUM.get(value);
+        }
+
+        private final int value;
+
+        AuthResult(int value_in) {
+            this.value = value_in;
+        }
+
+        public int value() {
+            return this.value;
+        }
+    }
+
     public enum Limit {
         SQLITE_LIMIT_LENGTH(0),
         SQLITE_LIMIT_SQL_LENGTH(1),
@@ -250,7 +349,7 @@ public class Sqlite3 {
         SQLITE_LIMIT_VARIABLE_NUMBER(9),
         SQLITE_LIMIT_TRIGGER_DEPTH(10);
 
-        private static final HashMap<Integer, Limit> VALUE_TO_ENUM = new HashMap<Integer, Limit>();
+        private static final HashMap<Integer, Limit> VALUE_TO_ENUM = new HashMap<>();
 
         static {
             for (Limit rc : values()) {
@@ -280,7 +379,7 @@ public class Sqlite3 {
         SQLITE_BLOB(4, "BLOB"),
         SQLITE_NULL(5, "NULL");
 
-        private static final HashMap<Integer, DataType> VALUE_TO_ENUM = new HashMap<Integer, DataType>();
+        private static final HashMap<Integer, DataType> VALUE_TO_ENUM = new HashMap<>();
 
         static {
             for (DataType dt : values()) {
@@ -340,7 +439,7 @@ public class Sqlite3 {
         SQLITE_ROW(100, "sqlite3_step() has another row ready"),
         SQLITE_DONE(101, "sqlite3_step() has finished executing");
 
-        private static final HashMap<Long, ReturnCodes> VALUE_TO_ENUM = new HashMap<Long, ReturnCodes>();
+        private static final HashMap<Long, ReturnCodes> VALUE_TO_ENUM = new HashMap<>();
 
         static {
             for (ReturnCodes rc : values()) {
@@ -390,6 +489,7 @@ public class Sqlite3 {
                 switch (rcEnum) {
                     case SQLITE_ERROR:
                         throw new SQLSyntaxErrorException(msg, "", rc);
+                    case SQLITE_AUTH:
                     case SQLITE_CORRUPT:
                         throw new SQLNonTransientException(msg, "", rc);
                     case SQLITE_BUSY:

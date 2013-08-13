@@ -36,10 +36,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 
 import static org.junit.Assert.*;
 
@@ -81,6 +78,14 @@ public class SqliteConnectionTest {
         assertEquals(Connection.TRANSACTION_SERIALIZABLE, this.conn.getTransactionIsolation());
         this.conn.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
         assertEquals(Connection.TRANSACTION_READ_UNCOMMITTED, this.conn.getTransactionIsolation());
+        this.conn.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+        assertEquals(Connection.TRANSACTION_SERIALIZABLE, this.conn.getTransactionIsolation());
+    }
+
+    @Test(expected = SQLException.class)
+    public void testTransactionIsolationOnClosedDB() throws Exception {
+        this.conn.close();
+        this.conn.getTransactionIsolation();
     }
 
     @Test(expected = SQLException.class)
@@ -115,6 +120,9 @@ public class SqliteConnectionTest {
         }
         catch (SQLException e) {
         }
+
+        this.conn.setAutoCommit(false);
+        assertFalse(this.conn.getAutoCommit());
 
         this.conn.setAutoCommit(false);
         assertFalse(this.conn.getAutoCommit());
@@ -162,5 +170,66 @@ public class SqliteConnectionTest {
         assertFalse(stmt.isClosed());
         this.conn.close();
         assertTrue(stmt.isClosed());
+    }
+
+    @Test
+    public void testReadOnly() throws Exception {
+        assertFalse(this.conn.isReadOnly());
+
+        this.conn.setAutoCommit(false);
+
+        try {
+            this.conn.setReadOnly(true);
+            fail("Able to set read-only mode when in a transaction?");
+        }
+        catch (SQLException e) {
+        }
+
+        this.conn.setAutoCommit(true);
+        this.conn.setReadOnly(true);
+
+        try (Statement stmt = this.conn.createStatement()) {
+            final String[] sqlStatements = new String[] {
+                    "INSERT INTO test_table VALUES (3, 'test')",
+                    "CREATE TABLE foo (id INTEGER)",
+                    "DROP TABLE test_table",
+                    "PRAGMA synchronous = 1",
+            };
+
+            for (String sql : sqlStatements) {
+                try {
+                    stmt.executeUpdate(sql);
+                    fail("Database modification should fail when in read-only mode");
+                }
+                catch (SQLNonTransientException e) {
+                    assertTrue(e.getMessage().contains("not authorized"));
+                }
+            }
+
+            ResultSet rs = stmt.executeQuery("SELECT * FROM test_table");
+
+            while (rs.next()) {
+                rs.getString(2);
+            }
+
+            stmt.execute("PRAGMA collation_list");
+        }
+
+        this.conn.setReadOnly(true);
+        assertTrue(this.conn.isReadOnly());
+
+        this.conn.setReadOnly(false);
+        assertFalse(this.conn.isReadOnly());
+
+        try (Statement stmt = this.conn.createStatement()) {
+            stmt.executeUpdate("INSERT INTO test_table VALUES (3, 'test')");
+        }
+    }
+
+    @Test
+    public void testSetCatalog() throws Exception {
+        assertNull(this.conn.getWarnings());
+        this.conn.setCatalog("foo");
+        assertNotNull(this.conn.getWarnings());
     }
 }

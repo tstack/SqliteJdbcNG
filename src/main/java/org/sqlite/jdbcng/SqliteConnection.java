@@ -34,16 +34,39 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 import org.sqlite.jdbcng.internal.WeakRefWithEquals;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class SqliteConnection extends SqliteCommon implements Connection {
     private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
+
+    private static final Sqlite3.AuthCallbackBase RO_AUTHORIZER = new Sqlite3.AuthCallbackBase() {
+        @Override
+        public int apply(Pointer<Void> context, int actionCode, Pointer<Byte> arg1, Pointer<Byte> arg2, Pointer<Byte> arg3, Pointer<Byte> arg4) {
+            Sqlite3.ActionCode acEnum = Sqlite3.ActionCode.valueOf(actionCode);
+
+            if (acEnum == null)
+                return Sqlite3.AuthResult.SQLITE_DENY.value();
+
+            switch (acEnum) {
+                case SQLITE_PRAGMA:
+                    if (arg2 == null) {
+                        return Sqlite3.AuthResult.SQLITE_OK.value();
+                    }
+                    return Sqlite3.AuthResult.SQLITE_DENY.value();
+                case SQLITE_ATTACH:
+                case SQLITE_DETACH:
+                case SQLITE_READ:
+                case SQLITE_SELECT:
+                case SQLITE_FUNCTION:
+                    return Sqlite3.AuthResult.SQLITE_OK.value();
+                default:
+                    return Sqlite3.AuthResult.SQLITE_DENY.value();
+            }
+        }
+    };
 
     private final String url;
     private final Pointer<Sqlite3.Sqlite3Db> db;
@@ -74,6 +97,12 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     void requireOpened() throws SQLException {
         if (this.closed) {
             throw new SQLNonTransientException("Database is closed for business");
+        }
+    }
+
+    void requireNoTransaction() throws SQLException {
+        if (!this.getAutoCommit()) {
+            throw new SQLNonTransientException("Read-only mode cannot be set in the middle of a transaction");
         }
     }
 
@@ -174,7 +203,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     }
 
     @Override
-    public void close() throws SQLException {
+    public synchronized void close() throws SQLException {
         if (!this.closed) {
             /*
              * JDBC Spec 9.4.4.1: All Statement objects created from a given
@@ -221,8 +250,17 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     @Override
     public void setReadOnly(boolean b) throws SQLException {
         requireOpened();
+        requireNoTransaction();
 
-        this.readOnly = true;
+        if (b != this.readOnly) {
+            if (b) {
+                Sqlite3.checkOk(Sqlite3.sqlite3_set_authorizer(this.db, Pointer.pointerTo(RO_AUTHORIZER), null));
+            }
+            else {
+                Sqlite3.sqlite3_set_authorizer(this.db, null, null);
+            }
+            this.readOnly = b;
+        }
     }
 
     @Override
@@ -269,8 +307,6 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public int getTransactionIsolation() throws SQLException {
-        requireOpened();
-
         try (Statement stmt = this.createStatement()) {
             ResultSet rs = stmt.executeQuery("PRAGMA read_uncommitted");
 
