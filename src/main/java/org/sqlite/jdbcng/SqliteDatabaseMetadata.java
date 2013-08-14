@@ -43,7 +43,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     static {
         SQLKeywords keywords = new SQLKeywords();
-        List<String> sqliteList = new ArrayList<String>(Arrays.asList(keywords.getSqliteKeywords()));
+        List<String> sqliteList = new ArrayList<>(Arrays.asList(keywords.getSqliteKeywords()));
 
         sqliteList.removeAll(Arrays.asList(keywords.getSqlKeywords()));
 
@@ -646,14 +646,38 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    private ResultSet executeConstantQuery(String constantQuery) throws SQLException {
+        Statement stmt = this.conn.createStatement();
+
+        try {
+            stmt.closeOnCompletion();
+            return stmt.executeQuery(constantQuery);
+        }
+        catch (SQLException e) {
+            stmt.close();
+
+            throw e;
+        }
+    }
+
     @Override
     public ResultSet getProcedures(String s, String s2, String s3) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support stored procedures");
+        return this.executeConstantQuery(
+                "SELECT null as PROCEDURE_CAT, null as PROCEDURE_SCHEM, null as PROCEDURE_NAME, " +
+                        "null as RES1, null as RES2, null as RES3, null as REMARKS, " +
+                        "null as PROCEDURE_TYPE, null as SPECIFIC_NAME LIMIT 0");
     }
 
     @Override
     public ResultSet getProcedureColumns(String s, String s2, String s3, String s4) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support stored procedures");
+        return this.executeConstantQuery(
+                "SELECT null as PROCEDURE_CAT, null as PROCEDURE_SCHEM, null as PROCEDURE_NAME, " +
+                        "null as COLUMN_NAME, null as COLUMN_TYPE, null as DATA_TYPE, " +
+                        "null as TYPE_NAME, null as PRECISION, null as LENGTH, null as SCALE, " +
+                        "null as RADIX, null as NULLABLE, null as REMARKS, null as COLUMN_DEF, " +
+                        "null as SQL_DATA_TYPE, null as SQL_DATETIME_SUB, null as CHAR_OCTET_LENGTH, " +
+                        "null as ORDINAL_POSITION, null as IS_NULLABLE, null as SPECIFIC_NAME " +
+                        "LIMIT 0");
     }
 
     private static final String[] DEFAULT_TABLE_TYPES = { "TABLE", "VIEW" };
@@ -708,7 +732,8 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getSchemas() throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support schemas");
+        return this.executeConstantQuery(
+                "SELECT null as TABLE_SCHEM, null as TABLE_CATALOG LIMIT 0");
     }
 
     @Override
@@ -745,7 +770,9 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getTableTypes() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(
+                "SELECT 'TABLE' as TABLE_TYPE UNION ALL " +
+                        "SELECT 'VIEW' as TABLE_TYPE");
     }
 
     @Override
@@ -865,7 +892,11 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getUDTs(String s, String s2, String s3, int[] ints) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(
+                "SELECT null as TYPE_CAT, null as TYPE_SCHEM, null as TYPE_NAME, " +
+                        "null as CLASS_NAME, null as DATA_TYPE, null as REMARKS, null as BASE_TYPE " +
+                        "LIMIT 0"
+        );
     }
 
     @Override
@@ -875,17 +906,17 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsSavepoints() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public boolean supportsNamedParameters() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
     public boolean supportsMultipleOpenResults() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
@@ -979,7 +1010,8 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getClientInfoProperties() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(
+                "SELECT '' AS NAME, 0 as MAX_LEN, '' as DEFAULT_VALUE, '' as DESCRIPTION LIMIT 0");
     }
 
     @Override

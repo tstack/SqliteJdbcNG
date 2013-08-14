@@ -132,21 +132,11 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
 
         try (ResultSet rs = dmd.getTables(null, null, "%", null)) {
             ResultSetMetaData rsm = rs.getMetaData();
-            String header = "|";
 
-            for (int lpc = 1; lpc <= rsm.getColumnCount(); lpc++) {
-                header += rsm.getColumnLabel(lpc) + "|";
-            }
-            assertEquals(TABLE_DUMP_HEADER, header);
+            assertEquals(TABLE_DUMP_HEADER, this.formatResultSetHeader(rsm));
 
             while (rs.next()) {
-                String dump = "|";
-
-                for (int lpc = 1; lpc <= rsm.getColumnCount(); lpc++) {
-                    dump += rs.getString(lpc) + "|";
-                }
-
-                assertEquals(TABLE_DUMPS[rs.getRow()], dump);
+                assertEquals(TABLE_DUMPS[rs.getRow()], this.formatResultSet(rs));
             }
         }
 
@@ -155,19 +145,48 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
         }
 
         try (ResultSet rs = dmd.getTables(null, null, "test_%", null)) {
-            ResultSetMetaData rsm = rs.getMetaData();
-
             assertTrue(rs.next());
-
-            String dump = "|";
-
-            for (int lpc = 1; lpc <= rsm.getColumnCount(); lpc++) {
-                dump += rs.getString(lpc) + "|";
-            }
-
-            assertEquals(TABLE_DUMPS[rs.getRow()], dump);
+            assertEquals(TABLE_DUMPS[rs.getRow()], this.formatResultSet(rs));
             assertFalse(rs.next());
         }
 
+    }
+
+    private static final String CLIENT_INFO_HEADER =
+            "|NAME|MAX_LEN|DEFAULT_VALUE|DESCRIPTION|";
+
+    @Test
+    public void testGetClientInfo() throws Exception {
+        DatabaseMetaData dmd = this.conn.getMetaData();
+
+        try (ResultSet rs = dmd.getClientInfoProperties()) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(CLIENT_INFO_HEADER, this.formatResultSetHeader(rsm));
+
+            assertFalse(rs.next());
+        }
+    }
+
+    private static final String TABLE_TYPE_HEADER = "|TABLE_TYPE|";
+
+    private static final String[] TABLE_TYPE_DUMPS = {
+            "|TABLE|",
+            "|VIEW|",
+    };
+
+    @Test
+    public void testGetTableTypes() throws Exception {
+        DatabaseMetaData dmd = this.conn.getMetaData();
+
+        try (ResultSet rs = dmd.getTableTypes()) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(TABLE_TYPE_HEADER, this.formatResultSetHeader(rsm));
+
+            while (rs.next()) {
+                assertEquals(TABLE_TYPE_DUMPS[rs.getRow()], this.formatResultSet(rs));
+            }
+        }
     }
 }

@@ -32,16 +32,10 @@ package org.sqlite.jdbcng;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
-import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.sql.*;
 
 public class SqliteTestHelper {
     protected static final SqliteDriver driver = new SqliteDriver();
@@ -70,12 +64,23 @@ public class SqliteTestHelper {
             this.conn.close();
     }
 
-    @Test
-    public void testIsValid() throws Exception {
-        assertTrue(this.conn.isValid(0));
-        this.conn.close();
-        assertFalse(this.conn.isValid(0));
-        assertTrue(this.conn.isClosed());
+    protected String formatResultSetHeader(ResultSetMetaData rsm) throws SQLException {
+        String retval = "|";
+
+        for (int lpc = 1; lpc <= rsm.getColumnCount(); lpc++) {
+            retval += rsm.getColumnLabel(lpc) + "|";
+        }
+        return retval;
     }
 
+    protected String formatResultSet(ResultSet rs) throws SQLException {
+        ResultSetMetaData rsm = rs.getMetaData();
+        String retval = "|";
+
+        for (int lpc = 1; lpc <= rsm.getColumnCount(); lpc++) {
+            retval += rs.getString(lpc) + "|";
+        }
+
+        return retval;
+    }
 }

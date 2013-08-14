@@ -41,6 +41,14 @@ import static org.junit.Assert.*;
 
 public class SqliteConnectionTest extends SqliteTestHelper {
     @Test
+    public void testIsValid() throws Exception {
+        assertTrue(this.conn.isValid(0));
+        this.conn.close();
+        assertFalse(this.conn.isValid(0));
+        assertTrue(this.conn.isClosed());
+    }
+
+    @Test
     public void testTransactionIsolation() throws Exception {
         assertEquals(Connection.TRANSACTION_SERIALIZABLE, this.conn.getTransactionIsolation());
         this.conn.setTransactionIsolation(Connection.TRANSACTION_READ_UNCOMMITTED);
