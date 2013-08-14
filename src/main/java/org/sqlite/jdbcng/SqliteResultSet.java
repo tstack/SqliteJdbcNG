@@ -68,10 +68,16 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         return this.rowNumber >= 0;
     }
 
+    private void requireOpen() throws SQLException {
+        if (this.closed)
+            throw new SQLNonTransientException("Result set is closed");
+    }
+
     @Override
     public synchronized boolean next() throws SQLException {
         int rc;
 
+        requireOpen();
         this.clearWarnings();
 
         for (WeakReference<Blob> blobRef : this.blobList) {
@@ -112,11 +118,6 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         }
     }
 
-    private void requireOpen() throws SQLException {
-        if (this.closed)
-            throw new SQLNonTransientException("Result set is closed");
-    }
-
     int checkColumn(int i) throws SQLException {
         requireOpen();
 
@@ -140,7 +141,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     public String getString(int i) throws SQLException {
         Pointer<Byte> str = Sqlite3.sqlite3_column_text(stmt, checkColumn(i));
 
-        return str.getCString();
+        return str != null ? str.getCString() : null;
     }
 
     @Override
@@ -189,7 +190,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         Pointer<Byte> blob = Sqlite3.sqlite3_column_blob(this.stmt, zcol);
         int blobLen = Sqlite3.sqlite3_column_bytes(this.stmt, zcol);
 
-        return blob.getBytes(blobLen);
+        return blob != null ? blob.getBytes(blobLen) : null;
     }
 
     @Override
@@ -404,7 +405,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public int getRow() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.rowNumber;
     }
 
     @Override
@@ -1086,15 +1087,5 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     @Override
     public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public <T> T unwrap(Class<T> tClass) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public boolean isWrapperFor(Class<?> aClass) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 }

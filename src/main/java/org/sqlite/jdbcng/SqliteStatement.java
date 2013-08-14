@@ -55,7 +55,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     }
 
     void requireOpened() throws SQLException {
-        if (this.closed) {
+        if (this.isClosed()) {
             throw new SQLNonTransientException("Statement is closed for business");
         }
     }
@@ -170,7 +170,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public void cancel() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        Sqlite3.sqlite3_interrupt(this.conn.getHandle());
     }
 
     @Override
@@ -386,16 +386,6 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         requireOpened();
 
         return this.closeOnCompletion;
-    }
-
-    @Override
-    public <T> T unwrap(Class<T> tClass) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public boolean isWrapperFor(Class<?> aClass) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
     @Override

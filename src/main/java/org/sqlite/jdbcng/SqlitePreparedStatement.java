@@ -52,7 +52,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
         this.stmt = requireAccess(stmt);
         this.paramCount = Sqlite3.sqlite3_bind_parameter_count(stmt);
-        this.lastResult = new SqliteResultSet(this, this.stmt);
+        this.lastResult = null;
     }
 
     int checkParam(int index) {
@@ -65,7 +65,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     }
 
     void requireClosedResult() throws SQLException {
-        if (this.lastResult.isActive()) {
+        if (this.lastResult != null && this.lastResult.isActive()) {
             throw new SQLNonTransientException("Previous result set for statement must be closed before parameters can be rebound");
         }
     }
@@ -87,7 +87,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public ResultSet executeQuery() throws SQLException {
-        this.lastResult.close();
+        if (this.lastResult != null)
+            this.lastResult.close();
 
         this.clearWarnings();
 

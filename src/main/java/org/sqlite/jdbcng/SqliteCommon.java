@@ -30,6 +30,7 @@
 package org.sqlite.jdbcng;
 
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.sql.SQLWarning;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -80,9 +81,7 @@ public class SqliteCommon {
     synchronized void addWarning(SQLWarning warning) {
         LOGGER.warning(warning.getMessage());
 
-        if (this.warnings != null) {
-            this.warnings.setNextWarning(warning);
-        }
+        warning.setNextWarning(this.warnings);
         this.warnings = warning;
     }
 
@@ -92,5 +91,13 @@ public class SqliteCommon {
 
     public synchronized void clearWarnings() throws SQLException {
         this.warnings = null;
+    }
+
+    public <T> T unwrap(Class<T> tClass) throws SQLException {
+        throw new SQLNonTransientException("No object implements the given class");
+    }
+
+    public boolean isWrapperFor(Class<?> aClass) throws SQLException {
+        return false;
     }
 }

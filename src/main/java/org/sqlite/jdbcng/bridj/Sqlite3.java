@@ -76,12 +76,6 @@ public class Sqlite3 {
 
     private static final DbReleaser DB_RELEASER = new DbReleaser();
 
-    public static class Sqlite3FreeCallback extends Callback<Sqlite3FreeCallback> {
-        public void apply(Pointer<Byte> mem) {
-            sqlite3_free(mem);
-        }
-    }
-
     public static abstract class BufferDestructorBase extends Callback<BufferDestructorBase> {
         public abstract void apply(Pointer<Void> mem);
     }
@@ -108,6 +102,10 @@ public class Sqlite3 {
                                   Pointer<Byte> arg4);
     }
 
+    public static abstract class ProgressCallbackBase extends Callback<ProgressCallbackBase> {
+        public abstract int apply(Pointer<Void> context);
+    }
+
     public static class Sqlite3Db extends StructObject {
     }
 
@@ -126,6 +124,11 @@ public class Sqlite3 {
     public static native int sqlite3_close(Pointer<Sqlite3Db> db);
     public static native int sqlite3_close_v2(Pointer<Sqlite3Db> db);
 
+    public static native void sqlite3_interrupt(Pointer<Sqlite3Db> db);
+    public static native void sqlite3_progress_handler(Pointer<Sqlite3Db> db,
+                                                       int instructionCount,
+                                                       Pointer<ProgressCallbackBase> cb,
+                                                       Pointer<Void> userData);
     public static native int sqlite3_set_authorizer(Pointer<Sqlite3Db> db,
                                                     Pointer<AuthCallbackBase> cb,
                                                     Pointer<Void> userData);
@@ -495,12 +498,15 @@ public class Sqlite3 {
                     case SQLITE_BUSY:
                     case SQLITE_IOERR:
                     case SQLITE_NOTFOUND:
-                    case SQLITE_LOCKED:
                         throw new SQLTransientException(msg, "", rc);
+                    case SQLITE_LOCKED:
+                        throw new SQLTransactionRollbackException(msg, "", rc);
                     case SQLITE_NOTADB:
                         throw new SQLNonTransientConnectionException(msg, "", rc);
                     case SQLITE_CANTOPEN:
                         throw new SQLTransientConnectionException(msg, "", rc);
+                    case SQLITE_CONSTRAINT:
+                        throw new SQLIntegrityConstraintViolationException(msg, "", rc);
                     default:
                         throw new SQLException(msg, "", rc);
                 }

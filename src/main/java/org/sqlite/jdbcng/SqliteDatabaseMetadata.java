@@ -78,7 +78,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean isReadOnly() throws SQLException {
-        return false;
+        return this.conn.isReadOnly();
     }
 
     @Override
@@ -675,15 +675,19 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
         String sql = Sqlite3.mprintf(
                 "SELECT ? as TABLE_CAT, null as TABLE_SCHEM, name as TABLE_NAME, " +
-                        "null as TABLE_TYPE, sql as REMARKS, null as TYPE_CAT, " +
+                        "upper(type) as TABLE_TYPE, sql as REMARKS, null as TYPE_CAT, " +
                         "null as TYPE_SCHEM, null as TYPE_NAME, " +
                         "\"row_id\" as SELF_REFERENCING_COL_NAME, " +
                         "\"SYSTEM\" as REF_GENERATION FROM %Q.sqlite_master " +
-                        "WHERE TABLE_NAME LIKE ? and upper(type) in (%s) " +
+                        "WHERE name LIKE ? and upper(type) in (%s) " +
                         "ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME",
                 catalog,
                 Sqlite3.join(Collections.nCopies(types.length, "?").toArray(), ", "));
-        try (PreparedStatement ps = this.conn.prepareStatement(sql)) {
+
+        PreparedStatement ps = this.conn.prepareStatement(sql);
+
+        ps.closeOnCompletion();
+        try {
             ps.setString(1, catalog);
 
             if (tableNamePattern == null)
@@ -694,6 +698,11 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             }
 
             return ps.executeQuery();
+        }
+        catch (SQLException e) {
+            ps.close();
+
+            throw e;
         }
     }
 
@@ -706,7 +715,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     public ResultSet getCatalogs() throws SQLException {
         try (Statement stmt = this.conn.createStatement()) {
             ResultSet rs = stmt.executeQuery("PRAGMA database_list");
-            List<String> dbNames = new ArrayList<String>();
+            List<String> dbNames = new ArrayList<>();
 
             while (rs.next()) {
                 dbNames.add(rs.getString(2));
@@ -716,12 +725,20 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                     Collections.nCopies(dbNames.size(), "SELECT ? as TABLE_CAT").toArray(),
                     " UNION ALL ");
 
-            try (PreparedStatement preparedStatement = this.conn.prepareStatement(query)) {
+            PreparedStatement preparedStatement = this.conn.prepareStatement(query);
+
+            preparedStatement.closeOnCompletion();
+            try {
                 for (int lpc = 0; lpc < dbNames.size(); lpc++) {
                     preparedStatement.setString(lpc + 1, dbNames.get(lpc));
                 }
 
                 return preparedStatement.executeQuery();
+            }
+            catch (SQLException e) {
+                preparedStatement.close();
+
+                throw e;
             }
         }
     }

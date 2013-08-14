@@ -31,6 +31,7 @@ package org.sqlite.jdbcng;
 
 import org.bridj.Pointer;
 import org.sqlite.jdbcng.bridj.Sqlite3;
+import org.sqlite.jdbcng.internal.CloseNotifier;
 import org.sqlite.jdbcng.internal.WeakRefWithEquals;
 
 import java.sql.*;
@@ -41,6 +42,8 @@ import java.util.logging.Logger;
 
 public class SqliteConnection extends SqliteCommon implements Connection {
     private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
+
+    private static final SQLPermission CALL_ABORT_PERM = new SQLPermission("callAbort");
 
     private static final Sqlite3.AuthCallbackBase RO_AUTHORIZER = new Sqlite3.AuthCallbackBase() {
         @Override
@@ -74,7 +77,9 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     private final List<WeakRefWithEquals<Statement>> statements = new ArrayList<>();
     private SqliteDatabaseMetadata metadata;
     private boolean readOnly;
-    private boolean closed;
+    private final CloseNotifier closer = new CloseNotifier();
+    private boolean halfClosed;
+    private int savepointId;
 
     public SqliteConnection(String url, Properties properties) throws SQLException {
         Pointer<Pointer<Sqlite3.Sqlite3Db>> db_out = Pointer.allocatePointer(Sqlite3.Sqlite3Db.class);
@@ -94,15 +99,25 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         this.executeCanned("PRAGMA database_list");
     }
 
+    synchronized int nextSavepointId() {
+        return this.savepointId++;
+    }
+
     void requireOpened() throws SQLException {
-        if (this.closed) {
+        if (this.isClosed()) {
             throw new SQLNonTransientException("Database is closed for business");
         }
     }
 
     void requireNoTransaction() throws SQLException {
         if (!this.getAutoCommit()) {
-            throw new SQLNonTransientException("Read-only mode cannot be set in the middle of a transaction");
+            throw new SQLNonTransientException("Operation cannot be performed in the middle of a transaction");
+        }
+    }
+
+    private void requireTransaction() throws SQLException {
+        if (this.getAutoCommit()) {
+            throw new SQLNonTransientException("Operation cannot be performed while in auto-commit mode");
         }
     }
 
@@ -204,7 +219,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public synchronized void close() throws SQLException {
-        if (!this.closed) {
+        if (!this.closer.isClosed()) {
             /*
              * JDBC Spec 9.4.4.1: All Statement objects created from a given
              * Connection object will be closed when the close method for
@@ -228,13 +243,13 @@ public class SqliteConnection extends SqliteCommon implements Connection {
             }
 
             this.db.release();
-            this.closed = true;
+            this.closer.close();
         }
     }
 
     @Override
     public boolean isClosed() throws SQLException {
-        return this.closed;
+        return this.halfClosed || this.closer.isClosed();
     }
 
     @Override
@@ -248,13 +263,14 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     }
 
     @Override
-    public void setReadOnly(boolean b) throws SQLException {
+    public synchronized void setReadOnly(boolean b) throws SQLException {
         requireOpened();
         requireNoTransaction();
 
         if (b != this.readOnly) {
             if (b) {
-                Sqlite3.checkOk(Sqlite3.sqlite3_set_authorizer(this.db, Pointer.pointerTo(RO_AUTHORIZER), null));
+                Sqlite3.checkOk(Sqlite3.sqlite3_set_authorizer(this.db, Pointer.pointerTo(RO_AUTHORIZER), null),
+                        this.db);
             }
             else {
                 Sqlite3.sqlite3_set_authorizer(this.db, null, null);
@@ -359,24 +375,43 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
-    @Override
-    public Savepoint setSavepoint() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    private void execSavepointStatement(String sql, SqliteSavepoint sp) throws SQLException {
+        requireOpened();
+        requireTransaction();
+
+        String fullSql = Sqlite3.mprintf(sql, sp.getSqliteName());
+
+        try (Statement stmt = this.createStatement()) {
+            stmt.execute(fullSql);
+        }
     }
 
     @Override
-    public Savepoint setSavepoint(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public Savepoint setSavepoint() throws SQLException {
+        SqliteSavepoint retval = new SqliteSavepoint(this.nextSavepointId());
+
+        execSavepointStatement("SAVEPOINT %q", retval);
+
+        return retval;
+    }
+
+    @Override
+    public Savepoint setSavepoint(String name) throws SQLException {
+        SqliteSavepoint retval = new SqliteSavepoint(name);
+
+        execSavepointStatement("SAVEPOINT %q", retval);
+
+        return retval;
     }
 
     @Override
     public void rollback(Savepoint savepoint) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        execSavepointStatement("ROLLBACK TO %q", (SqliteSavepoint)savepoint);
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        execSavepointStatement("RELEASE SAVEPOINT %q", (SqliteSavepoint)savepoint);
     }
 
     @Override
@@ -385,6 +420,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                                      int resultSetHoldability)
             throws SQLException {
         requireOpened();
+        this.clearWarnings();
         requireResultSetType(resultSetType, resultSetConcurrency, resultSetHoldability);
 
         return this.trackStatement(new SqliteStatement(this));
@@ -396,12 +432,14 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                                               int resultSetConcurrency,
                                               int resultSetHoldability) throws SQLException {
         requireOpened();
+        this.clearWarnings();
         requireResultSetType(resultSetType, resultSetConcurrency, resultSetHoldability);
 
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.db,
-                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL));
+                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
+                this.db);
 
         return this.trackStatement(new SqlitePreparedStatement(this, stmt_out.get()));
     }
@@ -453,27 +491,52 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public boolean isValid(int i) throws SQLException {
-        return !this.closed;
+        return !this.isClosed();
     }
 
     @Override
-    public void setClientInfo(String s, String s2) throws SQLClientInfoException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public void setClientInfo(String k, String v) throws SQLClientInfoException {
+        try {
+            requireOpened();
+
+            throw new SQLFeatureNotSupportedException("SQLite does not support client info");
+        }
+        catch (SQLException e) {
+            throw new SQLClientInfoException(
+                    Collections.singletonMap(k, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
+                    e);
+        }
     }
 
     @Override
     public void setClientInfo(Properties properties) throws SQLClientInfoException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        try {
+            requireOpened();
+
+            throw new SQLFeatureNotSupportedException("SQLite does not support client info");
+        }
+        catch (SQLException e) {
+            Map<String, ClientInfoStatus> map = new HashMap<>();
+
+            for (Object key : properties.keySet()) {
+                map.put((String) key, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
+            }
+            throw new SQLClientInfoException(map, e);
+        }
     }
 
     @Override
     public String getClientInfo(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return null;
     }
 
     @Override
     public Properties getClientInfo() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return new Properties();
     }
 
     @Override
@@ -499,32 +562,35 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     }
 
     @Override
-    public void abort(Executor executor) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+    public synchronized void abort(Executor executor) throws SQLException {
+        SecurityManager sm = System.getSecurityManager();
+
+        if (sm != null) {
+            sm.checkPermission(CALL_ABORT_PERM);
+        }
+        if (!this.isClosed()) {
+            Sqlite3.sqlite3_interrupt(this.db);
+            this.halfClosed = true;
+            if (executor != null) {
+                executor.execute(this.closer);
+            }
+        }
     }
 
     @Override
     public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite is a local-only database");
     }
 
     @Override
     public int getNetworkTimeout() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public <T> T unwrap(Class<T> tClass) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
-    }
-
-    @Override
-    public boolean isWrapperFor(Class<?> aClass) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite is a local-only database");
     }
 
     @Override
     protected void finalize() throws Throwable {
+        super.finalize();
+
         if (!this.isClosed()) {
             LOGGER.log(Level.WARNING,
                     "SQLite database connection was not explicitly closed -- {0}",

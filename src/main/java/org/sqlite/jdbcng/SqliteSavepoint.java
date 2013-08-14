@@ -15,7 +15,7 @@
  * may be used to endorse or promote products derived from this software
  * without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS ''AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY Tim Stack AND CONTRIBUTORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY
@@ -27,23 +27,46 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.sqlite.jdbcng.bridj;
+package org.sqlite.jdbcng;
 
-import org.junit.Test;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.Savepoint;
 
-import static org.junit.Assert.assertEquals;
+public class SqliteSavepoint implements Savepoint {
+    private final int id;
+    private final String name;
+    private final String sqliteName;
 
-public class Sqlite3Test {
-    @Test
-    public void testVersion() {
-        int version = Sqlite3.sqlite3_libversion_number();
-
-        assertEquals(version / 1000000, 3);
+    public SqliteSavepoint(int id) {
+        this.id = id;
+        this.name = null;
+        this.sqliteName = "_sp_" + id;
     }
 
-    @Test
-    public void testMPrintf() {
-        assertEquals(Sqlite3.mprintf("testing"), "testing");
-        assertEquals(Sqlite3.mprintf("%Q %Q", "foo", "bar"), "'foo' 'bar'");
+    public SqliteSavepoint(String name) {
+        this.id = 0;
+        this.name = name;
+        this.sqliteName = name;
+    }
+
+    String getSqliteName() {
+        return this.sqliteName;
+    }
+
+    @Override
+    public int getSavepointId() throws SQLException {
+        if (this.name != null)
+            throw new SQLNonTransientException("Named savepoints do not have an ID");
+
+        return this.id;
+    }
+
+    @Override
+    public String getSavepointName() throws SQLException {
+        if (this.name == null)
+            throw new SQLNonTransientException("Anonymous savepoints do not have a name");
+
+        return this.name;
     }
 }

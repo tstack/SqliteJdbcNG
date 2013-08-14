@@ -15,7 +15,7 @@
  * may be used to endorse or promote products derived from this software
  * without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHORS AND CONTRIBUTORS ''AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY Tim Stack AND CONTRIBUTORS ''AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
  * DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE FOR ANY
@@ -27,23 +27,33 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package org.sqlite.jdbcng.bridj;
+package org.sqlite.jdbcng.internal;
 
-import org.junit.Test;
+public class CloseNotifier implements Runnable {
+    private static final int MAX_ATTEMPTS = 3;
+    private static final long WAIT_TIMEOUT = 500;
 
-import static org.junit.Assert.assertEquals;
+    private boolean closed;
 
-public class Sqlite3Test {
-    @Test
-    public void testVersion() {
-        int version = Sqlite3.sqlite3_libversion_number();
-
-        assertEquals(version / 1000000, 3);
+    public boolean isClosed() {
+        return this.closed;
     }
 
-    @Test
-    public void testMPrintf() {
-        assertEquals(Sqlite3.mprintf("testing"), "testing");
-        assertEquals(Sqlite3.mprintf("%Q %Q", "foo", "bar"), "'foo' 'bar'");
+    public synchronized void close() {
+        this.closed = true;
+        this.notifyAll();
+    }
+
+    @Override
+    public void run() {
+        synchronized (this) {
+            try {
+                for (int attempt = 0; attempt < MAX_ATTEMPTS && !this.isClosed(); attempt++) {
+                    this.wait(WAIT_TIMEOUT);
+                }
+            }
+            catch (InterruptedException e) {
+            }
+        }
     }
 }
