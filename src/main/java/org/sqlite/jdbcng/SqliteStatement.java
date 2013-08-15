@@ -360,6 +360,13 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         for (String sql : batchCopy) {
             try {
                 if (this.execute(sql)) {
+                    try (ResultSet rs = this.getResultSet()) {
+                        if (rs.next()) {
+                            LOGGER.log(Level.WARNING,
+                                    "executeBatch used with a statement that is returning results -- {0}",
+                                    new Object[] { sql });
+                        }
+                    }
                     retval[index] = SUCCESS_NO_INFO;
                 }
                 else {

@@ -37,14 +37,24 @@ import java.util.logging.Logger;
 import static org.junit.Assert.*;
 
 public class SqliteStatementTest extends SqliteTestHelper {
+    private static final String[] BATCH_ATTACH_RESULT = {
+            "|main|",
+            "|db2|",
+    };
+
     @Test
     public void testExecuteBatch() throws Exception {
         try (Statement stmt = this.conn.createStatement()) {
             stmt.addBatch("INSERT INTO test_table VALUES (2, 'testing')");
             stmt.addBatch("ATTACH ':memory:' as db2");
+            stmt.addBatch("SELECT * FROM test_table");
             stmt.addBatch("INSERT INTO test_table VALUES (3, 'testing again')");
 
-            assertArrayEquals(new int[]{1, Statement.SUCCESS_NO_INFO, 1}, stmt.executeBatch());
+            assertArrayEquals(new int[]{1, Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO, 1},
+                    stmt.executeBatch());
+
+            assertArrayEquals(BATCH_ATTACH_RESULT,
+                    this.formatResultSet(this.conn.getMetaData().getCatalogs()));
 
             assertArrayEquals(new int[0], stmt.executeBatch());
 
