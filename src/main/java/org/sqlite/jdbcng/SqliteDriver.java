@@ -39,6 +39,20 @@ import java.util.logging.Logger;
 public class SqliteDriver implements Driver {
     private static final Logger LOGGER = Logger.getLogger(SqliteDriver.class.getPackage().getName());
 
+    static {
+        try {
+            /*
+             * Apparently the DriverManager service loader does not register
+             * the instance of our class that instantiates.  So, we still
+             * need to do the registration statically.
+             */
+            DriverManager.registerDriver(new SqliteDriver());
+        }
+        catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Could not register SqliteDriver", e);
+        }
+    }
+
     static final int[] VERSION = { 0, 5 };
 
     public SqliteDriver() {
