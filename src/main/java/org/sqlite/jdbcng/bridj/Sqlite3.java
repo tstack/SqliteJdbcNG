@@ -498,6 +498,7 @@ public class Sqlite3 {
                     case SQLITE_BUSY:
                     case SQLITE_IOERR:
                     case SQLITE_NOTFOUND:
+                    case SQLITE_INTERRUPT:
                         throw new SQLTransientException(msg, "", rc);
                     case SQLITE_LOCKED:
                         throw new SQLTransactionRollbackException(msg, "", rc);

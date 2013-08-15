@@ -70,18 +70,6 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         }
     }
 
-    Pointer<Sqlite3.Statement> requireAccess(Pointer<Sqlite3.Statement> stmt) throws SQLException {
-        stmt = Sqlite3.withReleaser(stmt);
-
-        if (this.conn.isReadOnly() && Sqlite3.sqlite3_stmt_readonly(stmt) == 0) {
-            stmt.release();
-            throw new SQLNonTransientException(
-                    "Connection is in read-only mode, but statement is not read-only");
-        }
-
-        return stmt;
-    }
-
     void resultSetClosed() throws SQLException {
         if (this.closeOnCompletion) {
             this.close();
@@ -193,6 +181,25 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         return this.queryTimeoutSeconds;
     }
 
+    /**
+     * Sets a timeout for any executed statements.
+     *
+     * Implementation details:
+     * - The timeout is implemented through the progress callback
+     *   mechanism in SQLite, so it applies to all statements concurrently
+     *   running on a connection.  However, connections should not be shared
+     *   across threads, so this shouldn't be a problem.
+     * - For queries executed through executeQuery(), the statement is not
+     *   executed until ResultSet.next() is run and the timeout is applied
+     *   at that time.  The next() method will also be the one throwing the
+     *   exception.
+     * - If a timeout is applied to a statement and cancel() is called, the
+     *   driver will throw a SQLTimeoutException since the SQLite library
+     *   does not distinguish between sqlite3_interrupt() being called and
+     *   a progress handler returning a non-zero return code.
+     *
+     * {@inheritDoc}
+     */
     @Override
     public void setQueryTimeout(int seconds) throws SQLException {
         requireOpened();

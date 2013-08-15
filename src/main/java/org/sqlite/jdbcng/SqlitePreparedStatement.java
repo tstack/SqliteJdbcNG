@@ -61,7 +61,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             throws SQLException {
         super(conn);
 
-        this.stmt = requireAccess(stmt);
+        this.stmt = Sqlite3.withReleaser(stmt);
         this.paramCount = Sqlite3.sqlite3_bind_parameter_count(stmt);
         this.paramValues = new Object[this.paramCount];
         this.paramTypes = new int[this.paramCount];

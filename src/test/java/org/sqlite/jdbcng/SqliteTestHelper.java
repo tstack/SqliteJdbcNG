@@ -47,11 +47,13 @@ public class SqliteTestHelper {
 
     protected File dbFile;
     protected Connection conn;
+    protected SqliteConnection sqliteConnection;
 
     @Before
     public void openConnection() throws Exception {
         this.dbFile = this.testFolder.newFile("test.db");
         this.conn = driver.connect("jdbc:sqlite:" + this.dbFile.getAbsolutePath(), null);
+        this.sqliteConnection = (SqliteConnection)this.conn;
         try (Statement stmt = this.conn.createStatement()) {
             stmt.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR)");
             stmt.execute("INSERT INTO test_table VALUES (1, 'test')");
@@ -64,6 +66,8 @@ public class SqliteTestHelper {
     public void closeConnection() throws SQLException {
         if (this.conn != null)
             this.conn.close();
+        this.conn = null;
+        this.sqliteConnection = null;
     }
 
     protected String formatResultSetHeader(ResultSetMetaData rsm) throws SQLException {

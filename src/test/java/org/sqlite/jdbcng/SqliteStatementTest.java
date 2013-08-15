@@ -29,13 +29,9 @@
 
 package org.sqlite.jdbcng;
 
-import org.bridj.Pointer;
 import org.junit.Test;
 
-import java.sql.BatchUpdateException;
-import java.sql.ResultSet;
-import java.sql.SQLTimeoutException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.logging.Logger;
 
 import static org.junit.Assert.*;
@@ -45,9 +41,10 @@ public class SqliteStatementTest extends SqliteTestHelper {
     public void testExecuteBatch() throws Exception {
         try (Statement stmt = this.conn.createStatement()) {
             stmt.addBatch("INSERT INTO test_table VALUES (2, 'testing')");
+            stmt.addBatch("ATTACH ':memory:' as db2");
             stmt.addBatch("INSERT INTO test_table VALUES (3, 'testing again')");
 
-            assertArrayEquals(new int[]{1, 1}, stmt.executeBatch());
+            assertArrayEquals(new int[]{1, Statement.SUCCESS_NO_INFO, 1}, stmt.executeBatch());
 
             assertArrayEquals(new int[0], stmt.executeBatch());
 
@@ -124,20 +121,16 @@ public class SqliteStatementTest extends SqliteTestHelper {
     @Test
     public void testQueryTimeout() throws Exception {
         try (Statement stmt = this.conn.createStatement()) {
-            SqliteConnection sqliteConnection = (SqliteConnection)this.conn;
+            try {
+                stmt.setQueryTimeout(-1);
+                fail("negative timeout value allowed?");
+            }
+            catch (SQLException e) {
 
-            sqliteConnection.setProgressStep(1);
-            sqliteConnection.pushCallback(new SqliteConnectionProgressCallback(sqliteConnection) {
-                @Override
-                public int apply(Pointer<Void> context) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
+            }
 
-                    }
-                    return 0;
-                }
-            });
+            this.sqliteConnection.setProgressStep(1);
+            this.sqliteConnection.pushCallback(new DelayProgressCallback(sqliteConnection, 1000));
             stmt.setQueryTimeout(1);
             assertEquals(1, stmt.getQueryTimeout());
 
@@ -145,6 +138,17 @@ public class SqliteStatementTest extends SqliteTestHelper {
             try (ResultSet rs = stmt.executeQuery("SELECT * FROM test_table")) {
                 rs.next();
                 fail("Expected a timeout exception");
+            }
+            catch (SQLTimeoutException e) {
+                long endTime = System.currentTimeMillis();
+
+                if (endTime - startTime < 1000) {
+                    fail("Timeout expired early -- " + (endTime - startTime));
+                }
+            }
+
+            try {
+                stmt.execute("INSERT INTO test_table VALUES (2, 'testing')");
             }
             catch (SQLTimeoutException e) {
                 long endTime = System.currentTimeMillis();
@@ -163,6 +167,14 @@ public class SqliteStatementTest extends SqliteTestHelper {
 
             assertEquals(0, stmt.getMaxRows());
 
+            try {
+                stmt.setMaxRows(-1);
+                fail("able to set max rows to a negative number?");
+            }
+            catch (SQLNonTransientException e) {
+                assertEquals(0, stmt.getMaxRows());
+            }
+
             stmt.setMaxRows(1);
             assertEquals(1, stmt.getMaxRows());
             try (ResultSet rs = stmt.executeQuery("SELECT * FROM test_table")) {
@@ -178,5 +190,82 @@ public class SqliteStatementTest extends SqliteTestHelper {
                 assertFalse(rs.next());
             }
         }
+    }
+
+    @Test
+    public void testCancel() throws Exception {
+        try (final Statement stmt = this.conn.createStatement()) {
+            stmt.cancel();
+
+            this.sqliteConnection.setProgressStep(1);
+            this.sqliteConnection.pushCallback(new DelayProgressCallback(sqliteConnection, 10));
+
+            Thread canceller = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Thread.sleep(10);
+                        stmt.cancel();
+                    }
+                    catch (InterruptedException e) {
+
+                    } catch (SQLException e) {
+
+                    }
+                }
+            });
+
+            canceller.start();
+
+            try {
+                stmt.executeUpdate("INSERT INTO test_table VALUES (2, 'testing')");
+                fail("Statement was not cancelled?");
+            }
+            catch (SQLException e) {
+            }
+        }
+    }
+
+    @Test(expected = SQLIntegrityConstraintViolationException.class)
+    public void testIntegrityException() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            stmt.execute("INSERT INTO test_table VALUES (1, 'test')");
+        }
+    }
+
+    @Test(expected = SQLFeatureNotSupportedException.class)
+    public void testFetchDirection() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            assertEquals(ResultSet.FETCH_FORWARD, stmt.getFetchDirection());
+            stmt.setFetchDirection(ResultSet.FETCH_FORWARD);
+            assertEquals(ResultSet.FETCH_FORWARD, stmt.getFetchDirection());
+            stmt.setFetchDirection(ResultSet.FETCH_REVERSE);
+        }
+    }
+
+    @Test
+    public void testFetchSize() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            assertEquals(0, stmt.getFetchSize());
+            stmt.setFetchSize(10);
+            assertEquals(0, stmt.getFetchSize());
+        }
+    }
+
+    @Test(expected = SQLNonTransientException.class)
+    public void testExecuteNonQuery() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            stmt.executeQuery("INSERT INTO test_table VALUES (2, 'testing')");
+        }
+    }
+
+    @Test(expected = SQLNonTransientException.class)
+    public void testClosedStatement() throws Exception {
+        Statement stmt = this.conn.createStatement();
+
+        assertFalse(stmt.isClosed());
+        stmt.close();
+        assertTrue(stmt.isClosed());
+        stmt.execute("SELECT * FROM test_table");
     }
 }

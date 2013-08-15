@@ -64,6 +64,11 @@ public class SqliteDriverTest {
         assertEquals(true, driver.acceptsURL("jdbc:sqlite:/tmp/test.db"));
     }
 
+    @Test(expected = IllegalArgumentException.class)
+    public void testInvalidUrl() throws Exception {
+        new SqliteUrl("jdbc:mysql:");
+    }
+
     @Test
     public void testVersion() {
         assertEquals(SqliteDriver.VERSION[0], this.driver.getMajorVersion());
