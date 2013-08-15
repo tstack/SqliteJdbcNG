@@ -508,7 +508,7 @@ public class Sqlite3 {
                     case SQLITE_CONSTRAINT:
                         throw new SQLIntegrityConstraintViolationException(msg, "", rc);
                     default:
-                        throw new SQLException(msg, "", rc);
+                        throw new SQLException(msg + ": " + rc, "", rc);
                 }
             }
         }

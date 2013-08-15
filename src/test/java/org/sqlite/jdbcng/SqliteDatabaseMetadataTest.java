@@ -104,7 +104,7 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
         }
 
         try (Statement stmt = this.conn.createStatement()) {
-            stmt.execute("ATTACH ':memory:' as extra_db");
+            stmt.executeUpdate("ATTACH ':memory:' as extra_db");
 
             try (ResultSet rs = dmd.getCatalogs()) {
                 assertTrue(rs.next());
@@ -134,10 +134,7 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
             ResultSetMetaData rsm = rs.getMetaData();
 
             assertEquals(TABLE_DUMP_HEADER, this.formatResultSetHeader(rsm));
-
-            while (rs.next()) {
-                assertEquals(TABLE_DUMPS[rs.getRow()], this.formatResultSet(rs));
-            }
+            assertArrayEquals(TABLE_DUMPS, this.formatResultSet(rs));
         }
 
         try (ResultSet rs = dmd.getTables(null, null, "foo", null)) {
@@ -146,10 +143,9 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
 
         try (ResultSet rs = dmd.getTables(null, null, "test_%", null)) {
             assertTrue(rs.next());
-            assertEquals(TABLE_DUMPS[rs.getRow()], this.formatResultSet(rs));
+            assertEquals(TABLE_DUMPS[rs.getRow() - 1], this.formatResultSetRow(rs));
             assertFalse(rs.next());
         }
-
     }
 
     private static final String CLIENT_INFO_HEADER =
@@ -185,7 +181,7 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
             assertEquals(TABLE_TYPE_HEADER, this.formatResultSetHeader(rsm));
 
             while (rs.next()) {
-                assertEquals(TABLE_TYPE_DUMPS[rs.getRow()], this.formatResultSet(rs));
+                assertEquals(TABLE_TYPE_DUMPS[rs.getRow() - 1], this.formatResultSetRow(rs));
             }
         }
     }

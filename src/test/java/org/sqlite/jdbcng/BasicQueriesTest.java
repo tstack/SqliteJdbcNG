@@ -38,7 +38,7 @@ import java.sql.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-public class BasicQueries {
+public class BasicQueriesTest {
     private final SqliteDriver driver = new SqliteDriver();
     private Connection conn;
 
@@ -55,75 +55,71 @@ public class BasicQueries {
 
     @Test
     public void testSimpleQueries() throws Exception {
-        Statement stmt = conn.createStatement();
+        ResultSet rs;
+        try (Statement stmt = conn.createStatement()) {
+            assertEquals(conn, stmt.getConnection());
 
-        assertEquals("jdbc:sqlite:", conn.getMetaData().getURL());
+            assertEquals("jdbc:sqlite:", conn.getMetaData().getURL());
 
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS test_table " +
-                "(id INTEGER PRIMARY KEY, name TEXT, start DATETIME)");
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS test_table " +
+                    "(id INTEGER PRIMARY KEY, name TEXT, start DATETIME)");
 
-        ResultSet rs = stmt.executeQuery("SELECT * FROM test_table");
+            rs = stmt.executeQuery("SELECT * FROM test_table");
 
-        assertEquals(false, rs.next());
+            assertEquals(false, rs.next());
 
-        try {
-            stmt.executeQuery("THIS IS BAD SQL");
-            fail("SQL Syntax error was not thrown");
-        }
-        catch (SQLSyntaxErrorException e) {
+            try {
+                stmt.executeQuery("THIS IS BAD SQL");
+                fail("SQL Syntax error was not thrown");
+            } catch (SQLSyntaxErrorException e) {
 
-        }
+            }
 
-        assertEquals(true, conn.getAutoCommit());
+            assertEquals(true, conn.getAutoCommit());
 
-        int rc = stmt.executeUpdate("INSERT INTO test_table VALUES (1, 'Kino', '2010-05-25T10:00:00')");
+            int rc = stmt.executeUpdate("INSERT INTO test_table VALUES (1, 'Kino', '2010-05-25T10:00:00')");
 
-        assertEquals(1, rc);
+            assertEquals(1, rc);
 
-        assertEquals(true, conn.getAutoCommit());
-        assertEquals(false, conn.isReadOnly());
+            assertEquals(true, conn.getAutoCommit());
+            assertEquals(false, conn.isReadOnly());
 
-        PreparedStatement ps = conn.prepareStatement("SELECT * FROM test_table WHERE id=?");
+            PreparedStatement ps = conn.prepareStatement("SELECT * FROM test_table WHERE id=?");
 
-        ps.setInt(1, 2);
-        rs = ps.executeQuery();
+            ps.setInt(1, 2);
+            rs = ps.executeQuery();
 
-        assertEquals(false, rs.next());
+            assertEquals(false, rs.next());
 
-        try {
+            rs.close();
+
             ps.setInt(1, 1);
-            fail("Parameters can be rebound until the previous result set is closed?");
+            rs = ps.executeQuery();
+
+            assertEquals(true, rs.next());
+
+            assertEquals(1, rs.getInt(1));
+            assertEquals(1, rs.getInt("id"));
+            assertEquals("Kino", rs.getString(2));
+            assertEquals("Kino", rs.getString("name"));
+
+            assertEquals(false, rs.next());
+
+            ps = conn.prepareStatement("INSERT INTO test_table VALUES (?, ?, ?)");
+            ps.setInt(1, 2);
+            ps.setString(2, "Eve");
+            Timestamp ts = new Timestamp(1376222713L * 1000L);
+
+            ps.setTimestamp(3, ts);
+
+            rc = ps.executeUpdate();
+            assertEquals(1, rc);
+            assertEquals(1, ps.getUpdateCount());
+
+            rs = stmt.executeQuery("SELECT * FROM test_table ORDER BY id DESC");
+
+            assertEquals(true, rs.next());
+            assertEquals("2013-08-11 05:05:13.000", rs.getString(3));
         }
-        catch (SQLException e) {
-
-        }
-
-        rs.close();
-
-        ps.setInt(1, 1);
-        rs = ps.executeQuery();
-
-        assertEquals(true, rs.next());
-
-        assertEquals(1, rs.getInt(1));
-        assertEquals(1, rs.getInt("id"));
-        assertEquals("Kino", rs.getString(2));
-        assertEquals("Kino", rs.getString("name"));
-
-        assertEquals(false, rs.next());
-
-        ps = conn.prepareStatement("INSERT INTO test_table VALUES (?, ?, ?)");
-        ps.setInt(1, 2);
-        ps.setString(2, "Eve");
-        Timestamp ts = new Timestamp(1376222713L * 1000L);
-
-        ps.setTimestamp(3, ts);
-
-        ps.executeUpdate();
-
-        rs = stmt.executeQuery("SELECT * FROM test_table ORDER BY id DESC");
-
-        assertEquals(true, rs.next());
-        assertEquals("2013-08-11 05:05:13.000", rs.getString(3));
     }
 }

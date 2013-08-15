@@ -80,6 +80,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     private final CloseNotifier closer = new CloseNotifier();
     private boolean halfClosed;
     private int savepointId;
+    private int progressStep = 100;
+    private SqliteConnectionProgressCallback callback;
 
     public SqliteConnection(String url, Properties properties) throws SQLException {
         Pointer<Pointer<Sqlite3.Sqlite3Db>> db_out = Pointer.allocatePointer(Sqlite3.Sqlite3Db.class);
@@ -96,7 +98,11 @@ public class SqliteConnection extends SqliteCommon implements Connection {
          * Do an initial query to make sure the database is valid.  If there
          * is something wrong with it, it will throw a SQLITE_NOTADB error.
          */
-        this.executeCanned("PRAGMA database_list");
+        try (Statement stmt = this.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery("PRAGMA database_list")) {
+                rs.next();
+            }
+        }
     }
 
     synchronized int nextSavepointId() {
@@ -135,8 +141,41 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         requireOpened();
 
         try (Statement stmt = this.createStatement()) {
-            stmt.execute(sql);
+            stmt.executeUpdate(sql);
         }
+    }
+
+    public void setProgressStep(int step) {
+        this.progressStep = step;
+    }
+
+    public void pushCallback(SqliteConnectionProgressCallback callback) throws SQLException {
+        requireOpened();
+
+        if (callback == null)
+            throw new SQLNonTransientException("Callback cannot be null");
+
+        callback.setOther(this.callback);
+        this.callback = callback;
+        Sqlite3.sqlite3_progress_handler(
+                this.db,
+                this.progressStep,
+                Pointer.pointerTo((Sqlite3.ProgressCallbackBase) this.callback),
+                null);
+    }
+
+    public void popCallback() throws SQLException {
+        requireOpened();
+
+        if (this.callback == null)
+            throw new SQLNonTransientException("Callback stack is empty");
+
+        this.callback = this.callback.getOther();
+        Sqlite3.sqlite3_progress_handler(
+                this.db,
+                this.progressStep,
+                Pointer.pointerTo((Sqlite3.ProgressCallbackBase) this.callback),
+                null);
     }
 
     public String getURL() {
@@ -382,7 +421,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         String fullSql = Sqlite3.mprintf(sql, sp.getSqliteName());
 
         try (Statement stmt = this.createStatement()) {
-            stmt.execute(fullSql);
+            stmt.executeUpdate(fullSql);
         }
     }
 

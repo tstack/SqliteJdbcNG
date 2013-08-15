@@ -129,7 +129,7 @@ public class SqliteConnectionTest extends SqliteTestHelper {
             }
             catch (SQLException e) {
                 assertTrue(reachedCommit);
-                assertTrue(e.getMessage().contains("database is locked"));
+                assertTrue(e.getMessage(), e.getMessage().contains("locked"));
                 assertFalse(this.conn.getAutoCommit());
             }
         }
@@ -150,8 +150,15 @@ public class SqliteConnectionTest extends SqliteTestHelper {
         Statement stmt = this.conn.createStatement();
 
         assertFalse(stmt.isClosed());
+
+        ResultSet rs = stmt.executeQuery("SELECT * FROM test_table");
+        assertFalse(rs.isClosed());
+
         this.conn.close();
+        assertTrue(rs.isClosed());
         assertTrue(stmt.isClosed());
+        this.conn.close();
+        assertTrue(this.conn.isClosed());
     }
 
     @Test
@@ -354,6 +361,13 @@ public class SqliteConnectionTest extends SqliteTestHelper {
             stmt.executeUpdate("INSERT INTO test_table VALUES (2, 'test')");
             Savepoint sp = this.conn.setSavepoint();
             stmt.executeUpdate("INSERT INTO test_table VALUES (3, 'test')");
+            try {
+                sp.getSavepointName();
+                fail("Able to get savepoint name?");
+            }
+            catch (SQLException e) {
+            }
+            sp.getSavepointId();
             this.conn.rollback(sp);
             this.conn.commit();
 
@@ -382,6 +396,13 @@ public class SqliteConnectionTest extends SqliteTestHelper {
             stmt.executeUpdate("INSERT INTO test_table VALUES (3, 'test')");
             sp = this.conn.setSavepoint("test");
             stmt.executeUpdate("INSERT INTO test_table VALUES (4, 'test')");
+            try {
+                sp.getSavepointId();
+                fail("Able to get savepoint id?");
+            }
+            catch (SQLException e) {
+            }
+            assertEquals("test", sp.getSavepointName());
             this.conn.rollback(sp);
             this.conn.commit();
 

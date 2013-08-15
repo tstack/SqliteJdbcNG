@@ -31,10 +31,12 @@ package org.sqlite.jdbcng;
 
 import org.bridj.Pointer;
 import org.sqlite.jdbcng.bridj.Sqlite3;
+import org.sqlite.jdbcng.internal.TimeoutProgressCallback;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static java.util.logging.Level.WARNING;
@@ -44,14 +46,22 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     protected final SqliteConnection conn;
     protected final List<String> batchList = new ArrayList<>();
+    protected int queryTimeoutSeconds;
     protected boolean closeOnCompletion;
     protected String lastQuery;
+    protected int maxRows;
     protected SqliteResultSet lastResult;
     protected int lastUpdateCount;
     protected boolean closed;
+    protected final TimeoutProgressCallback timeoutCallback;
 
     public SqliteStatement(SqliteConnection conn) {
         this.conn = conn;
+        this.timeoutCallback = new TimeoutProgressCallback(conn);
+    }
+
+    Pointer<Sqlite3.Sqlite3Db> getDbHandle() {
+        return this.conn.getHandle();
     }
 
     void requireOpened() throws SQLException {
@@ -70,10 +80,6 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         }
 
         return stmt;
-    }
-
-    String getLastQuery() {
-        return this.lastQuery;
     }
 
     void resultSetClosed() throws SQLException {
@@ -108,14 +114,28 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         if (Sqlite3.sqlite3_stmt_readonly(stmt) == 0)
             throw new SQLNonTransientException("SQL statement is not a query");
 
-        this.replaceResultSet(new SqliteResultSet(this, stmt));
+        this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
 
         return this.lastResult;
     }
 
     @Override
     public int executeUpdate(String s) throws SQLException {
-        this.execute(s);
+        if (this.execute(s)) {
+            try (ResultSet rs = this.getResultSet()) {
+                /*
+                 * Certain statements are read-only, but are not SELECT
+                 * queries.  For example, adding another database to a
+                 * connection with "ATTACH".  This means we need to get
+                 * the result set and execute it at least once.
+                 */
+                if (rs.next()) {
+                    LOGGER.log(Level.WARNING,
+                            "executeUpdate used with a statement that is returning results -- {0}",
+                            new Object[] { s });
+                }
+            }
+        }
 
         return this.lastUpdateCount;
     }
@@ -146,12 +166,19 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public int getMaxRows() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        return this.maxRows;
     }
 
     @Override
     public void setMaxRows(int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        requireOpened();
+
+        if (i < 0)
+            throw new SQLNonTransientException("maxRows must be greater than or equal to zero");
+
+        this.maxRows = i;
     }
 
     @Override
@@ -161,21 +188,31 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public int getQueryTimeout() throws SQLException {
-        return 0;
+        requireOpened();
+
+        return this.queryTimeoutSeconds;
     }
 
     @Override
-    public void setQueryTimeout(int i) throws SQLException {
+    public void setQueryTimeout(int seconds) throws SQLException {
+        requireOpened();
+
+        if (seconds < 0)
+            throw new SQLNonTransientException("Timeout must be greater than or equal to zero");
+
+        this.queryTimeoutSeconds = seconds;
     }
 
     @Override
     public void cancel() throws SQLException {
+        requireOpened();
+
         Sqlite3.sqlite3_interrupt(this.conn.getHandle());
     }
 
     @Override
     public void setCursorName(String s) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support named cursors");
     }
 
     @Override
@@ -194,22 +231,29 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
 
         try {
-            int rc = Sqlite3.sqlite3_step(stmt);
-
-            switch (Sqlite3.ReturnCodes.valueOf(rc)) {
-                case SQLITE_OK:
-                case SQLITE_DONE:
-                    break;
-                default:
-                    Sqlite3.checkOk(rc, this.conn.getHandle());
-                    break;
-            }
-
             if (Sqlite3.sqlite3_stmt_readonly(stmt) != 0) {
-                this.replaceResultSet(new SqliteResultSet(this, stmt));
+                this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
                 stmt = null;
             }
             else {
+                int rc;
+
+                try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
+                        this.getQueryTimeout() * 1000)) {
+                    rc = Sqlite3.sqlite3_step(stmt);
+                    if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
+                        throw new SQLTimeoutException("Query timeout reached");
+                    }
+                }
+
+                switch (Sqlite3.ReturnCodes.valueOf(rc)) {
+                    case SQLITE_OK:
+                    case SQLITE_DONE:
+                        break;
+                    default:
+                        Sqlite3.checkOk(rc, this.conn.getHandle());
+                        break;
+                }
                 this.replaceResultSet(null);
             }
         }
@@ -300,7 +344,28 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public int[] executeBatch() throws SQLException {
-        return new int[0];  //To change body of implemented methods use File | Settings | File Templates.
+        String[] batchCopy = this.batchList.toArray(new String[this.batchList.size()]);
+        int[] retval = new int[batchCopy.length];
+        int index = 0;
+
+        this.batchList.clear();
+
+        for (String sql : batchCopy) {
+            try {
+                if (this.execute(sql)) {
+                    retval[index] = SUCCESS_NO_INFO;
+                }
+                else {
+                    retval[index] = this.lastUpdateCount;
+                }
+            }
+            catch (SQLException e) {
+                throw new BatchUpdateException(e);
+            }
+            index += 1;
+        }
+
+        return retval;
     }
 
     @Override
@@ -390,6 +455,8 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     protected void finalize() throws Throwable {
+        super.finalize();
+
         if (!this.closed) {
             LOGGER.log(WARNING,
                     "SQLite database statement was not explicitly closed -- {0}",

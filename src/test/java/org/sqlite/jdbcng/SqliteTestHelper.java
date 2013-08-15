@@ -36,6 +36,8 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SqliteTestHelper {
     protected static final SqliteDriver driver = new SqliteDriver();
@@ -73,7 +75,7 @@ public class SqliteTestHelper {
         return retval;
     }
 
-    protected String formatResultSet(ResultSet rs) throws SQLException {
+    protected String formatResultSetRow(ResultSet rs) throws SQLException {
         ResultSetMetaData rsm = rs.getMetaData();
         String retval = "|";
 
@@ -82,5 +84,15 @@ public class SqliteTestHelper {
         }
 
         return retval;
+    }
+
+    protected String[] formatResultSet(ResultSet rs) throws SQLException {
+        List<String> rows = new ArrayList<>();
+
+        while (rs.next()) {
+            rows.add(this.formatResultSetRow(rs));
+        }
+
+        return rows.toArray(new String[rows.size()]);
     }
 }
