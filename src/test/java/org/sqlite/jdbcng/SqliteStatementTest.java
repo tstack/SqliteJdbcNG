@@ -278,4 +278,67 @@ public class SqliteStatementTest extends SqliteTestHelper {
         assertTrue(stmt.isClosed());
         stmt.execute("SELECT * FROM test_table");
     }
+
+    @Test
+    public void testUpdateCount() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            assertEquals(1, stmt.executeUpdate("REPLACE INTO test_table VALUES (1, 'test')"));
+            assertEquals(1, stmt.getUpdateCount());
+            assertEquals(1, stmt.executeUpdate("INSERT INTO test_table VALUES (2, 'testing')"));
+            assertEquals(0, stmt.executeUpdate("CREATE TABLE change_tab (id INTEGER, name VARCHAR)"));
+            assertEquals(0, stmt.getUpdateCount());
+            assertEquals(0, stmt.executeUpdate("UPDATE test_table set name='more testing' where id > 2"));
+            assertEquals(1, stmt.executeUpdate("UPDATE test_table set name='more testing' where id > 1"));
+
+            try (ResultSet rs = stmt.executeQuery("SELECT * FROM test_table")) {
+                assertEquals(-1, stmt.getUpdateCount());
+                assertEquals(rs, stmt.getResultSet());
+            }
+
+            assertEquals(2, stmt.executeUpdate("DELETE FROM test_table WHERE 1"));
+        }
+    }
+
+    private static final String[] ESCAPE_RESULTS = {
+            "||",
+            "|1|",
+            "|4|",
+            "|2011-10-06|",
+            "|15:00:00|",
+            "|2011-10-06 15:00:00|",
+            "|0|",
+    };
+
+    private static final String[] ESCAPE_LIMIT_RESULTS = {
+            "|1|",
+            "|2|",
+    };
+
+    @Test
+    public void testEscapedQueries() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery(
+                    "SELECT {fn user()} AS RESULT UNION ALL " +
+                            "SELECT {fn abs(-1)} AS RESULT UNION ALL " +
+                            "SELECT {fn char_length('test')} AS RESULT UNION ALL " +
+                            "SELECT {d '2011-10-06'} AS RESULT UNION ALL " +
+                            "SELECT {t '15:00:00'} AS RESULT UNION ALL " +
+                            "SELECT {ts '2011-10-06 15:00:00'} AS RESULT UNION ALL " +
+                            "SELECT 'FOO' LIKE '\\%' {escape '\\'} AS RESULT")) {
+                assertArrayEquals(ESCAPE_RESULTS, this.formatResultSet(rs));
+            }
+
+            try (ResultSet rs = stmt.executeQuery(
+                    "SELECT 1 AS RESULT UNION ALL " +
+                            "SELECT 2 AS RESULT UNION ALL " +
+                            "SELECT 3 AS RESULT {limit 2}")) {
+                assertArrayEquals(ESCAPE_LIMIT_RESULTS, this.formatResultSet(rs));
+            }
+
+            try (ResultSet rs = stmt.executeQuery(
+                    "SELECT * FROM test_table {limit 1 offset 1}")) {
+                assertArrayEquals(new String[0], this.formatResultSet(rs));
+            }
+        }
+    }
 }

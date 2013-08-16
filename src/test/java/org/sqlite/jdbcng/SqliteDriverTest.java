@@ -36,11 +36,10 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.SQLNonTransientConnectionException;
-import java.sql.SQLTransientConnectionException;
+import java.sql.*;
+import java.util.Properties;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -123,5 +122,10 @@ public class SqliteDriverTest {
     @Test
     public void testLogger() throws Exception {
         assertNotNull(this.driver.getParentLogger());
+    }
+
+    @Test
+    public void testProperties() throws Exception {
+        assertArrayEquals(new DriverPropertyInfo[0], driver.getPropertyInfo("jdbc:sqlite::memory:", new Properties()));
     }
 }

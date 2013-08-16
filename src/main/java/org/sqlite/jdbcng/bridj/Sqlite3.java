@@ -120,6 +120,7 @@ public class Sqlite3 {
     public static native void sqlite3_free(Pointer<Byte> mem);
 
     public static native int sqlite3_changes(Pointer<Sqlite3Db> db);
+    public static native int sqlite3_total_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_open(Pointer<Byte> filename, Pointer<Pointer<Sqlite3Db>> db);
     public static native int sqlite3_close(Pointer<Sqlite3Db> db);
     public static native int sqlite3_close_v2(Pointer<Sqlite3Db> db);

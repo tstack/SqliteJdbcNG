@@ -82,7 +82,7 @@ public class SqliteDriver implements Driver {
 
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String s, Properties properties) throws SQLException {
-        return new DriverPropertyInfo[0];  //To change body of implemented methods use File | Settings | File Templates.
+        return new DriverPropertyInfo[0];
     }
 
     @Override

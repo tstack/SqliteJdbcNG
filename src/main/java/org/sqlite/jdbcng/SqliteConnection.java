@@ -31,14 +31,15 @@ package org.sqlite.jdbcng;
 
 import org.bridj.Pointer;
 import org.sqlite.jdbcng.bridj.Sqlite3;
-import org.sqlite.jdbcng.internal.CloseNotifier;
-import org.sqlite.jdbcng.internal.WeakRefWithEquals;
+import org.sqlite.jdbcng.internal.*;
 
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static org.sqlite.jdbcng.internal.EscapeParser.transform;
 
 public class SqliteConnection extends SqliteCommon implements Connection {
     private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
@@ -70,6 +71,21 @@ public class SqliteConnection extends SqliteCommon implements Connection {
             }
         }
     };
+
+    private static final Map<String, EscapeHandler> HANDLER_MAP = new HashMap<>();
+
+    static {
+        EscapeHandler passThruPair = new PassthruEscapeHandler(true);
+        EscapeHandler passThruArg = new PassthruEscapeHandler(false);
+
+        HANDLER_MAP.put("limit", passThruPair);
+        HANDLER_MAP.put("escape", passThruPair);
+        HANDLER_MAP.put("fn", new FunctionEscapeHandler());
+        HANDLER_MAP.put("d", passThruArg);
+        HANDLER_MAP.put("t", passThruArg);
+        HANDLER_MAP.put("ts", passThruArg);
+        HANDLER_MAP.put("oj", passThruArg);
+    }
 
     private final String url;
     private final Pointer<Sqlite3.Sqlite3Db> db;
@@ -220,7 +236,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public String nativeSQL(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return transform(s, HANDLER_MAP);
     }
 
     @Override
@@ -477,7 +493,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.db,
-                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
+                Pointer.pointerToCString(this.nativeSQL(s)), -1, stmt_out, Pointer.NULL),
                 this.db);
 
         return this.trackStatement(new SqlitePreparedStatement(this, stmt_out.get()));

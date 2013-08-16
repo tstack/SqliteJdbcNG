@@ -48,6 +48,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     protected final List<String> batchList = new ArrayList<>();
     protected int queryTimeoutSeconds;
     protected boolean closeOnCompletion;
+    protected boolean escapeStatements = true;
     protected String lastQuery;
     protected int maxRows;
     protected SqliteResultSet lastResult;
@@ -81,20 +82,22 @@ public class SqliteStatement extends SqliteCommon implements Statement {
             this.lastResult.close();
         }
         this.lastResult = rs;
+        if (rs != null)
+            this.lastUpdateCount = -1;
     }
 
     @Override
     public ResultSet executeQuery(String s) throws SQLException {
         requireOpened();
+        this.clearWarnings();
 
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
-
-        this.clearWarnings();
+        String escapedString = this.escapeStatements ? this.conn.nativeSQL(s) : s;
 
         this.lastQuery = s;
 
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
-                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
+                Pointer.pointerToCString(escapedString), -1, stmt_out, Pointer.NULL),
                 this.conn.getHandle());
 
         Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
@@ -171,7 +174,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public void setEscapeProcessing(boolean b) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        this.escapeStatements = b;
     }
 
     @Override
@@ -224,15 +227,17 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public boolean execute(String s) throws SQLException {
+        int changeDiff = 0;
+
         requireOpened();
+        this.clearWarnings();
 
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
-
-        this.clearWarnings();
+        String escapedString = this.escapeStatements ? this.conn.nativeSQL(s) : s;
 
         this.lastQuery = s;
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
-                Pointer.pointerToCString(s), -1, stmt_out, Pointer.NULL),
+                Pointer.pointerToCString(escapedString), -1, stmt_out, Pointer.NULL),
                 this.conn.getHandle());
 
         Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
@@ -247,7 +252,18 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
                 try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
                         this.getQueryTimeout() * 1000)) {
+                    /*
+                     * The sqlite3_changes() function reports the changes for
+                     * last DML statement that was executed and not the last
+                     * statement executed, be it DDL/DML or otherwise.  So,
+                     * we check the difference in total changes to see if
+                     * the previous statement was actually an INSERT, UPDATE,
+                     * or DELETE.
+                     */
+                    int initialChanges = Sqlite3.sqlite3_total_changes(this.conn.getHandle());
+
                     rc = Sqlite3.sqlite3_step(stmt);
+                    changeDiff = Sqlite3.sqlite3_total_changes(this.conn.getHandle()) - initialChanges;
                     if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
                         throw new SQLTimeoutException("Query timeout reached");
                     }
@@ -268,7 +284,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
             Pointer.release(stmt);
         }
 
-        this.lastUpdateCount = Sqlite3.sqlite3_changes(this.conn.getHandle());
+        if (this.lastResult != null)
+            this.lastUpdateCount = -1;
+        else if (changeDiff > 0)
+            this.lastUpdateCount = Sqlite3.sqlite3_changes(this.conn.getHandle());
+        else
+            this.lastUpdateCount = 0;
 
         return this.lastResult != null;
     }
