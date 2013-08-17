@@ -125,6 +125,17 @@ public class Sqlite3 {
     public static native int sqlite3_close(Pointer<Sqlite3Db> db);
     public static native int sqlite3_close_v2(Pointer<Sqlite3Db> db);
 
+    public static native int sqlite3_table_column_metadata(
+            Pointer<Sqlite3Db> db,
+            Pointer<Byte> dbName,
+            Pointer<Byte> tableName,
+            Pointer<Byte> columnName,
+            Pointer<Pointer<Byte>> dataType,
+            Pointer<Pointer<Byte>> collSeq,
+            Pointer<Integer> notNull,
+            Pointer<Integer> primaryKey,
+            Pointer<Integer> autoInc);
+
     public static native void sqlite3_interrupt(Pointer<Sqlite3Db> db);
     public static native void sqlite3_progress_handler(Pointer<Sqlite3Db> db,
                                                        int instructionCount,

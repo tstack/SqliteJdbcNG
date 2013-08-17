@@ -40,12 +40,19 @@ import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.sql.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SqliteResultSet extends SqliteCommon implements ResultSet {
+    private static final Pattern TIME_PATTERN = Pattern.compile(
+            "(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.(\\d{3}))?)?");
+
     private final SqliteStatement parent;
     private final Pointer<Sqlite3.Statement> stmt;
     private final int maxRows;
@@ -134,9 +141,9 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         requireOpen();
 
         if (i < 1)
-            throw new IllegalArgumentException("Column index must be greater than zero");
+            throw new SQLNonTransientException("Column index must be greater than zero");
         if (i > this.columnCount)
-            throw new IllegalArgumentException("Column index must be less than or equal to " + this.columnCount);
+            throw new SQLNonTransientException("Column index must be less than or equal to " + this.columnCount);
 
         this.lastColumn = i;
 
@@ -193,7 +200,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public BigDecimal getBigDecimal(int i, int i2) throws SQLException {
-        return null;
+        throw new SQLFeatureNotSupportedException();
     }
 
     @Override
@@ -207,12 +214,21 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Date getDate(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getDate(i, null);
     }
 
     @Override
     public Time getTime(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        Calendar cal = DEFAULT_CALENDAR.get();
+
+        /*
+         * http://www.sqlite.org/lang_datefunc.html
+         */
+        cal.clear();
+        cal.set(Calendar.YEAR, 2000);
+        cal.set(Calendar.MONTH, 1);
+        cal.set(Calendar.DAY_OF_MONTH, 1);
+        return this.getTime(i, cal);
     }
 
     @Override
@@ -353,6 +369,16 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         return this.getCharacterStream(this.findColumn(s));
     }
 
+    /**
+     * Implementation note: SQLite does not preserve the precision/scale of
+     * NUMERIC or DECIMAL values, which Java's BigDecimal does.  So, you
+     * cannot expect to be able to insert a BigDecimal into a SQLite DB and
+     * get the exact same value back out.  If you are looking to test for
+     * equality, you should use the BigDecimal.compareTo() method instead
+     * of equals().
+     *
+     * {@inheritDoc}
+     */
     @Override
     public BigDecimal getBigDecimal(int i) throws SQLException {
         String str = this.getString(i);
@@ -372,7 +398,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public BigDecimal getBigDecimal(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getBigDecimal(this.findColumn(s));
     }
 
     @Override
@@ -768,22 +794,67 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Date getDate(int i, Calendar calendar) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        String dateString = this.getString(i);
+        SimpleDateFormat dateFormat = DATE_FORMATTER.get();
+
+        if (dateString == null)
+            return null;
+
+        if (calendar == null)
+            calendar = DEFAULT_CALENDAR.get();
+
+        try {
+            dateFormat.setCalendar(calendar);
+            dateFormat.parse(dateString);
+            return new Date(calendar.getTime().getTime());
+        } catch (ParseException e) {
+            throw new SQLDataException("Invalid date", e);
+        }
     }
 
     @Override
     public Date getDate(String s, Calendar calendar) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getDate(this.findColumn(s), calendar);
     }
 
     @Override
     public Time getTime(int i, Calendar calendar) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        String timeString = this.getString(i);
+
+        if (timeString == null)
+            return null;
+
+        if (calendar == null) {
+            calendar = DEFAULT_CALENDAR.get();
+            calendar.clear();
+        }
+
+        Matcher m = TIME_PATTERN.matcher(timeString);
+        String val;
+
+        if (!m.matches()) {
+            throw new SQLDataException("Invalid time -- " + timeString);
+        }
+
+        calendar.set(Calendar.HOUR_OF_DAY, Integer.valueOf(m.group(1)));
+        calendar.set(Calendar.MINUTE, Integer.valueOf(m.group(2)));
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        val = m.group(3);
+        if (val != null) {
+            calendar.set(Calendar.SECOND, Integer.valueOf(m.group(3)));
+            val = m.group(4);
+            if (val != null) {
+                calendar.set(Calendar.MILLISECOND, Integer.valueOf(m.group(4)));
+            }
+        }
+
+        return new Time(calendar.getTime().getTime());
     }
 
     @Override
     public Time getTime(String s, Calendar calendar) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getTime(this.findColumn(s), calendar);
     }
 
     @Override

@@ -48,17 +48,20 @@ public class SqliteTestHelper {
     protected File dbFile;
     protected Connection conn;
     protected SqliteConnection sqliteConnection;
+    protected DatabaseMetaData dbMetadata;
 
     @Before
     public void openConnection() throws Exception {
         this.dbFile = this.testFolder.newFile("test.db");
         this.conn = driver.connect("jdbc:sqlite:" + this.dbFile.getAbsolutePath(), null);
+        this.dbMetadata = this.conn.getMetaData();
         this.sqliteConnection = (SqliteConnection)this.conn;
         try (Statement stmt = this.conn.createStatement()) {
-            stmt.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR)");
+            stmt.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
             stmt.execute("INSERT INTO test_table VALUES (1, 'test')");
 
-            stmt.execute("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER)");
+            stmt.execute("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL)");
+            stmt.execute("CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)");
         }
     }
 

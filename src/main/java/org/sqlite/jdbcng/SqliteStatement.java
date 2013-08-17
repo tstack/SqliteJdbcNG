@@ -132,7 +132,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     }
 
     @Override
-    public void close() throws SQLException {
+    public synchronized void close() throws SQLException {
         if (this.lastResult != null) {
             Pointer<Sqlite3.Statement> stmt = this.lastResult.getHandle();
 
@@ -333,6 +333,8 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     @Override
     public void setFetchSize(int i) throws SQLException {
         requireOpened();
+
+        // UsageWarning.log(Level.INFO, "Setting 'fetch size' will not affect performance with SQLite");
     }
 
     @Override

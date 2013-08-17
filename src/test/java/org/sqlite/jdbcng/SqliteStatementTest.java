@@ -339,6 +339,22 @@ public class SqliteStatementTest extends SqliteTestHelper {
                     "SELECT * FROM test_table {limit 1 offset 1}")) {
                 assertArrayEquals(new String[0], this.formatResultSet(rs));
             }
+
+            stmt.setEscapeProcessing(false);
+            try (ResultSet rs = stmt.executeQuery(
+                    "SELECT * FROM test_table {limit 1 offset 1}")) {
+                fail("escaped statement worked?");
+            }
+            catch (SQLSyntaxErrorException e) {
+
+            }
+        }
+    }
+
+    @Test(expected = SQLFeatureNotSupportedException.class)
+    public void testCursorName() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            stmt.setCursorName("foo");
         }
     }
 }

@@ -122,8 +122,9 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
             "|TABLE_CAT|TABLE_SCHEM|TABLE_NAME|TABLE_TYPE|REMARKS|TYPE_CAT|TYPE_SCHEM|TYPE_NAME|SELF_REFERENCING_COL_NAME|REF_GENERATION|";
 
     private static final String[] TABLE_DUMPS = {
-            "|main|null|test_table|TABLE|CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR)|null|null|null|row_id|SYSTEM|",
-            "|main|null|type_table|TABLE|CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER)|null|null|null|row_id|SYSTEM|",
+            "|main|null|prim_table|TABLE|CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)|null|null|null|row_id|SYSTEM|",
+            "|main|null|test_table|TABLE|CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)|null|null|null|row_id|SYSTEM|",
+            "|main|null|type_table|TABLE|CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL)|null|null|null|row_id|SYSTEM|",
     };
 
     @Test
@@ -143,8 +144,39 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
 
         try (ResultSet rs = dmd.getTables(null, null, "test_%", null)) {
             assertTrue(rs.next());
-            assertEquals(TABLE_DUMPS[rs.getRow() - 1], this.formatResultSetRow(rs));
+            assertEquals(TABLE_DUMPS[rs.getRow()], this.formatResultSetRow(rs));
             assertFalse(rs.next());
+        }
+    }
+
+    private static final String COLUMN_DUMP_HEADER =
+            "|TABLE_CAT|TABLE_SCHEM|TABLE_NAME|COLUMN_NAME|DATA_TYPE|TYPE_NAME|COLUMN_SIZE|" +
+                    "BUFFER_LENGTH|DECIMAL_DIGITS|NUM_PREC_RADIX|NULLABLE|REMARKS|COLUMN_DEF|" +
+                    "SQL_DATA_TYPE|SQL_DATETIME_SUB|ORDINAL_POSITION|IS_NULLABLE|SCOPE_CATALOG|" +
+                    "SCOPE_SCHEMA|SCOPE_TABLE|SOURCE_DATA_TYPE|IS_AUTOINCREMENT|IS_GENERATEDCOLUMN|";
+
+    private static final String[] COLUMN_DUMP = {
+            "|main|null|prim_table|id|4|INTEGER|0|null|0|10|1||null|null|null|1|YES|null|null|null|null|0|0|",
+            "|main|null|prim_table|b|16|BOOLEAN|0|null|0|10|1||null|null|null|2|YES|null|null|null|null|0|0|",
+            "|main|null|prim_table|bi|-5|BIGINT|0|null|0|10|1||null|null|null|3|YES|null|null|null|null|0|0|",
+            "|main|null|prim_table|f|6|FLOAT|0|null|0|10|1||null|null|null|4|YES|null|null|null|null|0|0|",
+            "|main|null|prim_table|d|8|DOUBLE|0|null|0|10|1||null|null|null|5|YES|null|null|null|null|0|0|",
+            "|main|null|test_table|id|4|INTEGER|0|null|0|10|1||null|null|null|1|YES|null|null|null|null|0|0|",
+            "|main|null|test_table|name|12|VARCHAR|0|null|0|10|0||null|null|null|2|NO|null|null|null|null|0|0|",
+            "|main|null|type_table|name|12|VARCHAR|0|null|0|10|1||null|null|null|1|YES|null|null|null|null|0|0|",
+            "|main|null|type_table|birthdate|93|DATETIME|0|null|0|10|1||null|null|null|2|YES|null|null|null|null|0|0|",
+            "|main|null|type_table|height|7|REAL|0|null|0|10|1||null|null|null|3|YES|null|null|null|null|0|0|",
+            "|main|null|type_table|eyes|4|INTEGER|0|null|0|10|1||null|null|null|4|YES|null|null|null|null|0|0|",
+            "|main|null|type_table|width|3|DECIMAL|0|null|0|10|1||null|null|null|5|YES|null|null|null|null|0|0|",
+    };
+
+    @Test
+    public void testGetColumns() throws Exception {
+        try (ResultSet rs = this.dbMetadata.getColumns(null, null, null, null)) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(COLUMN_DUMP_HEADER, this.formatResultSetHeader(rsm));
+            assertArrayEquals(COLUMN_DUMP, this.formatResultSet(rs));
         }
     }
 

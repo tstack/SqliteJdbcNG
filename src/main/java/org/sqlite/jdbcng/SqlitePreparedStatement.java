@@ -78,6 +78,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     }
 
     void bindParameters(Object[] values, int[] types) throws SQLException {
+        Sqlite3.checkOk(Sqlite3.sqlite3_reset(this.stmt));
         for (int lpc = 0; lpc < this.paramCount; lpc++) {
             int rc;
 
@@ -556,8 +557,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         requireOpened();
         checkParam(i);
 
-        this.paramTypes[i - 1] = targetSqlType;
         if (o == null) {
+            this.paramTypes[i - 1] = Types.NULL;
             this.paramValues[i - 1] = null;
             return;
         }
@@ -585,11 +586,11 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             case Types.VARBINARY:
                 if (o instanceof byte[]) {
                     this.paramValues[i - 1] = o;
-                    this.paramTypes[i - 1] = Types.VARBINARY;
+                    targetSqlType = Types.VARBINARY;
                 }
                 else if (o instanceof Blob) {
                     this.paramValues[i - 1] = o;
-                    this.paramTypes[i - 1] = Types.BLOB;
+                    targetSqlType = Types.BLOB;
                 }
                 else
                     throw new SQLNonTransientException("Conversion to long not supported for value -- " + o);
@@ -598,7 +599,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             case Types.BOOLEAN:
                 if (o instanceof Boolean) {
                     this.paramValues[i - 1] = ((Boolean)o).booleanValue() ? INTEGER_ONE : INTEGER_ZERO;
-                    this.paramTypes[i - 1] = Types.INTEGER;
+                    targetSqlType = Types.INTEGER;
                 }
                 else if (o instanceof Number)
                     this.paramValues[i - 1] = o;
@@ -608,7 +609,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             case Types.CHAR:
                 if (o instanceof Character) {
                     this.paramValues[i - 1] = o.toString();
-                    this.paramTypes[i - 1] = Types.VARCHAR;
+                    targetSqlType = Types.VARCHAR;
                 }
                 else
                     throw new SQLNonTransientException("Conversion to boolean not supported for value -- " + o);
@@ -626,11 +627,13 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                     throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
                 break;
             case Types.DECIMAL:
-                if (o instanceof BigDecimal)
-                    this.paramValues[i - 1] = o;
+                if (o instanceof BigDecimal) {
+                    this.paramValues[i - 1] = ((BigDecimal)o).toPlainString();
+                    targetSqlType = Types.VARCHAR;
+                }
                 else if (o instanceof Number) {
                     this.paramValues[i - 1] = o;
-                    this.paramTypes[i - 1] = Types.DOUBLE;
+                    targetSqlType = Types.BIGINT;
                 }
                 else
                     throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
@@ -657,7 +660,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 break;
             case Types.NUMERIC:
                 this.paramValues[i - 1] = o.toString();
-                this.paramTypes[i - 1] = Types.VARCHAR;
+                targetSqlType = Types.VARCHAR;
                 break;
             case Types.TIME:
                 if (o instanceof Time)
@@ -679,6 +682,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             default:
                 throw new SQLFeatureNotSupportedException("SQLite does not support the given type");
         }
+        this.paramTypes[i - 1] = targetSqlType;
     }
 
     @Override

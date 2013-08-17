@@ -32,6 +32,7 @@ package org.sqlite.jdbcng;
 import org.sqlite.jdbcng.bridj.Sqlite3;
 import org.sqlite.jdbcng.internal.SQLKeywords;
 
+import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -739,11 +740,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getCatalogs() throws SQLException {
         try (Statement stmt = this.conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("PRAGMA database_list");
             List<String> dbNames = new ArrayList<>();
 
-            while (rs.next()) {
-                dbNames.add(rs.getString(2));
+            try (ResultSet rs = stmt.executeQuery("PRAGMA database_list")) {
+                while (rs.next()) {
+                    dbNames.add(rs.getString(2));
+                }
             }
 
             String query = Sqlite3.join(
@@ -775,9 +777,125 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                         "SELECT 'VIEW' as TABLE_TYPE");
     }
 
+    private static class ColumnData {
+        public int index;
+        public String tableName;
+        public String name;
+        public String fullType;
+        public String type;
+        public int sqlType;
+        public boolean notNull;
+        public String defaultValue;
+        public boolean primaryKey;
+    }
+
     @Override
-    public ResultSet getColumns(String s, String s2, String s3, String s4) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public ResultSet getColumns(String catalog,
+                                String schemaPattern,
+                                String tableNamePattern,
+                                String columnNamePattern) throws SQLException {
+        List<String> tableList = new ArrayList<>();
+        String query;
+
+        if (catalog == null)
+            catalog = "main";
+        if (tableNamePattern == null)
+            tableNamePattern = "%";
+        if (columnNamePattern == null)
+            columnNamePattern = "%";
+
+        query = Sqlite3.mprintf("SELECT tbl_name FROM %Q.sqlite_master WHERE type='table' AND tbl_name LIKE ?",
+                catalog);
+        try (PreparedStatement ps = this.conn.prepareStatement(query)) {
+            ps.setString(1, tableNamePattern);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    tableList.add(rs.getString(1));
+                }
+            }
+        }
+
+        List<ColumnData> columnList = new ArrayList<>();
+
+        columnNamePattern = columnNamePattern.replaceAll("%", ".*");
+        try (Statement stmt = this.conn.createStatement()) {
+            for (String tableName : tableList) {
+
+                query = Sqlite3.mprintf("PRAGMA %Q.table_info(%Q)", catalog, tableName);
+
+                try (ResultSet rs = stmt.executeQuery(query)) {
+                    while (rs.next()) {
+                        ColumnData cd = new ColumnData();
+                        int parenIndex;
+
+                        cd.index = rs.getInt("cid") + 1;
+                        cd.tableName = tableName;
+                        cd.name = rs.getString("name");
+                        if (!cd.name.matches(columnNamePattern))
+                            continue;
+                        cd.fullType = rs.getString("type").toUpperCase();
+                        parenIndex = cd.fullType.indexOf('(');
+                        if (parenIndex != -1)
+                            cd.type = cd.fullType.substring(0, parenIndex);
+                        else
+                            cd.type = cd.fullType;
+                        try {
+                            Field typeField = Types.class.getField(cd.type);
+
+                            cd.sqlType = typeField.getInt(Types.class);
+                        } catch (NoSuchFieldException | IllegalAccessException e) {
+                            if ("DATETIME".equals(cd.type))
+                                cd.sqlType = Types.TIMESTAMP;
+                            else
+                                cd.sqlType = Types.VARCHAR;
+                        }
+                        cd.notNull = rs.getBoolean("notnull");
+                        cd.defaultValue = rs.getString("dflt_value");
+                        cd.primaryKey = rs.getBoolean("pk");
+                        columnList.add(cd);
+                    }
+                }
+            }
+        }
+
+        String constantQuery = "";
+
+        for (int lpc = 0; lpc < columnList.size(); lpc++) {
+            if (!constantQuery.isEmpty())
+                constantQuery += " UNION ALL ";
+            constantQuery += "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME, " +
+                    "? AS COLUMN_NAME, ? AS DATA_TYPE, ? AS TYPE_NAME, ? AS COLUMN_SIZE, " +
+                    "null AS BUFFER_LENGTH, ? AS DECIMAL_DIGITS, 10 AS NUM_PREC_RADIX, " +
+                    "? AS NULLABLE, '' AS REMARKS, ? AS COLUMN_DEF, null AS SQL_DATA_TYPE, " +
+                    "null AS SQL_DATETIME_SUB, ? AS ORDINAL_POSITION, ? AS IS_NULLABLE, " +
+                    "null AS SCOPE_CATALOG, null AS SCOPE_SCHEMA, null AS SCOPE_TABLE, " +
+                    "null AS SOURCE_DATA_TYPE, ? AS IS_AUTOINCREMENT, ? AS IS_GENERATEDCOLUMN ";
+        }
+        constantQuery += " ORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION";
+
+        PreparedStatement ps = this.conn.prepareStatement(constantQuery);
+
+        ps.closeOnCompletion();
+
+        int index = 1;
+
+        for (ColumnData column : columnList) {
+            ps.setString(index++, catalog);
+            ps.setString(index++, column.tableName);
+            ps.setString(index++, column.name);
+            ps.setInt(index++, column.sqlType);
+            ps.setString(index++, column.type);
+            ps.setInt(index++, 0);
+            ps.setInt(index++, 0);
+            ps.setInt(index++, column.notNull ? columnNoNulls : columnNullable);
+            ps.setString(index++, column.defaultValue);
+            ps.setInt(index++, column.index);
+            ps.setString(index++, column.notNull ? "NO" : "YES");
+            ps.setInt(index++, 0);
+            ps.setInt(index++, 0);
+        }
+
+        return ps.executeQuery();
     }
 
     @Override
