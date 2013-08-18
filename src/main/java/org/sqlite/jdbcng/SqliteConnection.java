@@ -102,7 +102,13 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     public SqliteConnection(String url, Properties properties) throws SQLException {
         Pointer<Pointer<Sqlite3.Sqlite3Db>> db_out = Pointer.allocatePointer(Sqlite3.Sqlite3Db.class);
         SqliteUrl sqliteUrl = new SqliteUrl(url);
-        int rc = Sqlite3.sqlite3_open(Pointer.pointerToCString(sqliteUrl.getPath()), db_out);
+        int rc = Sqlite3.sqlite3_open_v2(
+                Pointer.pointerToCString(sqliteUrl.getPath()),
+                db_out,
+                Sqlite3.OpenFlag.SQLITE_OPEN_READWRITE.intValue() |
+                        Sqlite3.OpenFlag.SQLITE_OPEN_CREATE.intValue() |
+                        Sqlite3.OpenFlag.SQLITE_OPEN_URI.intValue(),
+                null);
 
         this.url = url;
         this.db = Sqlite3.withDbReleaser(db_out.get());

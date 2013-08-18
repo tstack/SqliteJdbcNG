@@ -81,6 +81,10 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
             throw new SQLNonTransientException("Result set is closed");
     }
 
+    private void updateNotSupported() throws SQLException {
+        throw new SQLFeatureNotSupportedException("SQLite does not support result set updates");
+    }
+
     @Override
     public synchronized boolean next() throws SQLException {
         int rc;
@@ -137,13 +141,21 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         }
     }
 
-    int checkColumn(int i) throws SQLException {
-        requireOpen();
-
+    int checkColumnIndex(int i) throws SQLException {
         if (i < 1)
             throw new SQLNonTransientException("Column index must be greater than zero");
         if (i > this.columnCount)
             throw new SQLNonTransientException("Column index must be less than or equal to " + this.columnCount);
+
+        return i - 1;
+    }
+
+    private int checkColumn(int i) throws SQLException {
+        requireOpen();
+
+        if (this.rowNumber == 0)
+            throw new SQLNonTransientException("The next() method must be called before getting any data.");
+        this.checkColumnIndex(i);
 
         this.lastColumn = i;
 
@@ -508,222 +520,222 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public void updateNull(int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBoolean(int i, boolean b) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateByte(int i, byte b) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateShort(int i, short i2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateInt(int i, int i2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateLong(int i, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateFloat(int i, float v) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateDouble(int i, double v) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBigDecimal(int i, BigDecimal bigDecimal) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateString(int i, String s) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBytes(int i, byte[] bytes) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateDate(int i, Date date) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateTime(int i, Time time) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateTimestamp(int i, Timestamp timestamp) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateAsciiStream(int i, InputStream inputStream, int i2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBinaryStream(int i, InputStream inputStream, int i2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateCharacterStream(int i, Reader reader, int i2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateObject(int i, Object o, int i2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateObject(int i, Object o) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNull(String s) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBoolean(String s, boolean b) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateByte(String s, byte b) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateShort(String s, short i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateInt(String s, int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateLong(String s, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateFloat(String s, float v) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateDouble(String s, double v) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBigDecimal(String s, BigDecimal bigDecimal) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateString(String s, String s2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBytes(String s, byte[] bytes) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateDate(String s, Date date) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateTime(String s, Time time) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateTimestamp(String s, Timestamp timestamp) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateAsciiStream(String s, InputStream inputStream, int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBinaryStream(String s, InputStream inputStream, int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateCharacterStream(String s, Reader reader, int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateObject(String s, Object o, int i) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateObject(String s, Object o) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void insertRow() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateRow() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void deleteRow() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void refreshRow() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void cancelRowUpdates() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void moveToInsertRow() throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
@@ -884,42 +896,42 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public void updateRef(int i, Ref ref) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateRef(String s, Ref ref) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBlob(int i, Blob blob) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBlob(String s, Blob blob) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateClob(int i, Clob clob) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateClob(String s, Clob clob) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateArray(int i, Array array) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateArray(String s, Array array) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
@@ -934,12 +946,12 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public void updateRowId(int i, RowId rowId) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateRowId(String s, RowId rowId) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
@@ -954,22 +966,22 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public void updateNString(int i, String s) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNString(String s, String s2) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNClob(int i, NClob nClob) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNClob(String s, NClob nClob) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
@@ -984,22 +996,22 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public SQLXML getSQLXML(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLFeatureNotSupportedException("SQLite does not support SQLXML");
     }
 
     @Override
     public SQLXML getSQLXML(String s) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getSQLXML(this.findColumn(s));
     }
 
     @Override
     public void updateSQLXML(int i, SQLXML sqlxml) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateSQLXML(String s, SQLXML sqlxml) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
@@ -1024,142 +1036,142 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public void updateNCharacterStream(int i, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNCharacterStream(String s, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateAsciiStream(int i, InputStream inputStream, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBinaryStream(int i, InputStream inputStream, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateCharacterStream(int i, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateAsciiStream(String s, InputStream inputStream, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBinaryStream(String s, InputStream inputStream, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateCharacterStream(String s, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBlob(int i, InputStream inputStream, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBlob(String s, InputStream inputStream, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateClob(int i, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateClob(String s, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNClob(int i, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNClob(String s, Reader reader, long l) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNCharacterStream(int i, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNCharacterStream(String s, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateAsciiStream(int i, InputStream inputStream) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBinaryStream(int i, InputStream inputStream) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateCharacterStream(int i, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateAsciiStream(String s, InputStream inputStream) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBinaryStream(String s, InputStream inputStream) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateCharacterStream(String s, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBlob(int i, InputStream inputStream) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateBlob(String s, InputStream inputStream) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateClob(int i, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateClob(String s, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNClob(int i, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override
     public void updateNClob(String s, Reader reader) throws SQLException {
-        //To change body of implemented methods use File | Settings | File Templates.
+        updateNotSupported();
     }
 
     @Override

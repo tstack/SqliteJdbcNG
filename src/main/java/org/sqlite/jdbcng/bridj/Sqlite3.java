@@ -29,15 +29,14 @@
 
 package org.sqlite.jdbcng.bridj;
 
-import org.bridj.BridJ;
-import org.bridj.Callback;
-import org.bridj.Pointer;
-import org.bridj.StructObject;
+import org.bridj.*;
 import org.bridj.ann.Library;
 import org.bridj.ann.Optional;
 
 import java.sql.*;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 
 @Library("sqlite3")
 public class Sqlite3 {
@@ -122,6 +121,10 @@ public class Sqlite3 {
     public static native int sqlite3_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_total_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_open(Pointer<Byte> filename, Pointer<Pointer<Sqlite3Db>> db);
+    public static native int sqlite3_open_v2(Pointer<Byte> filename,
+                                             Pointer<Pointer<Sqlite3Db>> db,
+                                             int flags,
+                                             Pointer<Byte> vfsName);
     public static native int sqlite3_close(Pointer<Sqlite3Db> db);
     public static native int sqlite3_close_v2(Pointer<Sqlite3Db> db);
 
@@ -263,6 +266,58 @@ public class Sqlite3 {
         }
 
         return builder.toString();
+    }
+
+    public enum OpenFlag implements IntValuedEnum<OpenFlag> {
+        SQLITE_OPEN_READONLY(0x00000001), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_READWRITE(0x00000002), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_CREATE(0x00000004), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_DELETEONCLOSE(0x00000008), /* VFS only */
+        SQLITE_OPEN_EXCLUSIVE(0x00000010), /* VFS only */
+        SQLITE_OPEN_AUTOPROXY(0x00000020), /* VFS only */
+        SQLITE_OPEN_URI(0x00000040), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_MAIN_DB(0x00000100), /* VFS only */
+        SQLITE_OPEN_TEMP_DB(0x00000200), /* VFS only */
+        SQLITE_OPEN_TRANSIENT_DB(0x00000400), /* VFS only */
+        SQLITE_OPEN_MAIN_JOURNAL(0x00000800), /* VFS only */
+        SQLITE_OPEN_TEMP_JOURNAL(0x00001000), /* VFS only */
+        SQLITE_OPEN_SUBJOURNAL(0x00002000), /* VFS only */
+        SQLITE_OPEN_MASTER_JOURNAL(0x00004000), /* VFS only */
+        SQLITE_OPEN_NOMUTEX(0x00008000), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_FULLMUTEX(0x00010000), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_SHAREDCACHE(0x00020000), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_PRIVATECACHE(0x00040000), /* Ok for sqlite3_open_v2() */
+        SQLITE_OPEN_WAL(0x00080000); /* VFS only */
+
+        private static final HashMap<Long, OpenFlag> VALUE_TO_ENUM = new HashMap<>();
+
+        static {
+            for (OpenFlag rc : values()) {
+                VALUE_TO_ENUM.put(rc.value, rc);
+            }
+        }
+
+        private final long value;
+
+        OpenFlag(long value_in) {
+            this.value = value_in;
+        }
+
+        public long value() {
+            return this.value;
+        }
+
+        public Iterator<OpenFlag> iterator() {
+            return Collections.singleton(this).iterator();
+        }
+
+        public static IntValuedEnum<OpenFlag> fromValue(int value) {
+            return FlagSet.fromValue(value, values());
+        }
+
+        public int intValue() {
+            return (int)this.value;
+        }
     }
 
     public enum ActionCode {

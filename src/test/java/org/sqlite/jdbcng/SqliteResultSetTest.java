@@ -65,6 +65,14 @@ public class SqliteResultSetTest extends SqliteTestHelper {
         try (Statement stmt = this.conn.createStatement()) {
             try (ResultSet rs = stmt.executeQuery("SELECT * FROM test_table")) {
                 try {
+                    rs.getString(1);
+                    fail("able to read from a result before advancing to the first row?");
+                }
+                catch (SQLException e) {
+
+                }
+
+                try {
                     rs.getString(0);
                     fail("zero should be an invalid index");
                 }
@@ -97,7 +105,7 @@ public class SqliteResultSetTest extends SqliteTestHelper {
 
     @Test
     public void testGetDate() throws Exception {
-        long testDate = 1376636400L * 1000L;
+        long testDate = 1376611200L * 1000L;
 
         try (PreparedStatement ps = this.conn.prepareStatement(
                 "INSERT INTO type_table (name, birthdate) VALUES (?, ?)")) {
@@ -126,16 +134,18 @@ public class SqliteResultSetTest extends SqliteTestHelper {
 
     @Test
     public void testGetTime() throws Exception {
+        Time testTime[] = {
+                Time.valueOf("05:25:00"),
+                Time.valueOf("05:25:22"),
+        };
+
         try (PreparedStatement ps = this.conn.prepareStatement(
                 "INSERT INTO type_table (name, birthdate) VALUES (?, ?)")) {
             ps.setString(1, "d1");
-            ps.setString(2, "05:25");
+            ps.setTime(2, testTime[0]);
             ps.executeUpdate();
             ps.setString(1, "d2");
-            ps.setString(2, "05:25:22");
-            ps.executeUpdate();
-            ps.setString(1, "d3");
-            ps.setString(2, "05:25:44.123");
+            ps.setTime(2, testTime[1]);
             ps.executeUpdate();
         }
 
@@ -145,9 +155,6 @@ public class SqliteResultSetTest extends SqliteTestHelper {
                 assertEquals("05:25:00", rs.getTime("birthdate").toString());
                 assertTrue(rs.next());
                 assertEquals("05:25:22", rs.getTime(2).toString());
-                assertTrue(rs.next());
-                assertEquals("05:25:44", rs.getTime(2).toString());
-                assertEquals(123, rs.getTime(2).getTime() % 1000);
 
                 assertNull(rs.getTime(3));
                 assertTrue(rs.wasNull());

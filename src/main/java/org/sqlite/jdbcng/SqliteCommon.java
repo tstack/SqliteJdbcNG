@@ -35,6 +35,7 @@ import java.sql.SQLWarning;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.logging.Logger;
 
 public class SqliteCommon {
@@ -45,7 +46,7 @@ public class SqliteCommon {
         @Override
         protected Calendar initialValue()
         {
-            return new GregorianCalendar();
+            return new GregorianCalendar(TimeZone.getTimeZone("UTC"));
         }
     };
 

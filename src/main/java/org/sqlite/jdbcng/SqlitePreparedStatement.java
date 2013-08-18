@@ -456,8 +456,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
         SimpleDateFormat format = DATE_FORMATTER.get();
 
-        if (calendar == null)
-            calendar = DEFAULT_CALENDAR.get();
+        /* XXX */
+        calendar = DEFAULT_CALENDAR.get();
         format.setCalendar(calendar);
         this.setString(i, format.format(date));
     }

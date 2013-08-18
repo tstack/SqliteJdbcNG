@@ -180,6 +180,23 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
         }
     }
 
+    private static final String PK_DUMP_HEADER =
+            "|TABLE_CAT|TABLE_SCHEM|TABLE_NAME|COLUMN_NAME|KEY_SEQ|PK_NAME|";
+
+    private static final String[] PK_DUMP = {
+            "|null|null|test_table|id|1|null|",
+    };
+
+    @Test
+    public void testGetPrimaryKeys() throws Exception {
+        try (ResultSet rs = this.dbMetadata.getPrimaryKeys(null, null, "test_table")) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(PK_DUMP_HEADER, this.formatResultSetHeader(rsm));
+            assertArrayEquals(PK_DUMP, this.formatResultSet(rs));
+        }
+    }
+
     private static final String CLIENT_INFO_HEADER =
             "|NAME|MAX_LEN|DEFAULT_VALUE|DESCRIPTION|";
 

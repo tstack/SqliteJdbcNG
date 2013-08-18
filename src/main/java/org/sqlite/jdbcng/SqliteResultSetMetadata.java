@@ -143,12 +143,12 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public String getColumnLabel(int i) throws SQLException {
-        return this.columnNames[this.rs.checkColumn(i)];
+        return this.columnNames[this.rs.checkColumnIndex(i)];
     }
 
     @Override
     public String getColumnName(int i) throws SQLException {
-        return this.originNames[this.rs.checkColumn(i)];
+        return this.originNames[this.rs.checkColumnIndex(i)];
     }
 
     @Override
@@ -168,12 +168,12 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public String getTableName(int i) throws SQLException {
-        return this.tableNames[this.rs.checkColumn(i)];
+        return this.tableNames[this.rs.checkColumnIndex(i)];
     }
 
     @Override
     public String getCatalogName(int i) throws SQLException {
-        return this.databaseNames[this.rs.checkColumn(i)];
+        return this.databaseNames[this.rs.checkColumnIndex(i)];
     }
 
     @Override
@@ -183,7 +183,7 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public String getColumnTypeName(int i) throws SQLException {
-        return this.columnDeclType[this.rs.checkColumn(i)];
+        return this.columnDeclType[this.rs.checkColumnIndex(i)];
     }
 
     @Override

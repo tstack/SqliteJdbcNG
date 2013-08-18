@@ -778,15 +778,42 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     }
 
     private static class ColumnData {
-        public int index;
-        public String tableName;
-        public String name;
-        public String fullType;
-        public String type;
-        public int sqlType;
-        public boolean notNull;
-        public String defaultValue;
-        public boolean primaryKey;
+        public ColumnData(String tableName, ResultSet rs) throws SQLException {
+            int parenIndex, sqlType = Types.VARCHAR;
+
+            this.index = rs.getInt("cid") + 1;
+            this.tableName = tableName;
+            this.name = rs.getString("name");
+            this.fullType = rs.getString("type").toUpperCase();
+            parenIndex = this.fullType.indexOf('(');
+            if (parenIndex != -1)
+                this.type = this.fullType.substring(0, parenIndex);
+            else
+                this.type = this.fullType;
+            try {
+                Field typeField = Types.class.getField(this.type);
+
+                sqlType = typeField.getInt(Types.class);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                if ("DATETIME".equals(this.type))
+                    sqlType = Types.TIMESTAMP;
+            }
+            this.sqlType = sqlType;
+
+            this.notNull = rs.getBoolean("notnull");
+            this.defaultValue = rs.getString("dflt_value");
+            this.primaryKey = rs.getInt("pk");
+        }
+
+        public final int index;
+        public final String tableName;
+        public final String name;
+        public final String fullType;
+        public final String type;
+        public final int sqlType;
+        public final boolean notNull;
+        public final String defaultValue;
+        public final int primaryKey;
     }
 
     @Override
@@ -797,8 +824,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         List<String> tableList = new ArrayList<>();
         String query;
 
+        /* XXX We should iterate over the catalogs instead of just defaulting to "main" */
         if (catalog == null)
             catalog = "main";
+
         if (tableNamePattern == null)
             tableNamePattern = "%";
         if (columnNamePattern == null)
@@ -825,33 +854,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
                 try (ResultSet rs = stmt.executeQuery(query)) {
                     while (rs.next()) {
-                        ColumnData cd = new ColumnData();
-                        int parenIndex;
+                        ColumnData cd = new ColumnData(tableName, rs);
 
-                        cd.index = rs.getInt("cid") + 1;
-                        cd.tableName = tableName;
-                        cd.name = rs.getString("name");
                         if (!cd.name.matches(columnNamePattern))
                             continue;
-                        cd.fullType = rs.getString("type").toUpperCase();
-                        parenIndex = cd.fullType.indexOf('(');
-                        if (parenIndex != -1)
-                            cd.type = cd.fullType.substring(0, parenIndex);
-                        else
-                            cd.type = cd.fullType;
-                        try {
-                            Field typeField = Types.class.getField(cd.type);
-
-                            cd.sqlType = typeField.getInt(Types.class);
-                        } catch (NoSuchFieldException | IllegalAccessException e) {
-                            if ("DATETIME".equals(cd.type))
-                                cd.sqlType = Types.TIMESTAMP;
-                            else
-                                cd.sqlType = Types.VARCHAR;
-                        }
-                        cd.notNull = rs.getBoolean("notnull");
-                        cd.defaultValue = rs.getString("dflt_value");
-                        cd.primaryKey = rs.getBoolean("pk");
                         columnList.add(cd);
                     }
                 }
@@ -919,8 +925,51 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     }
 
     @Override
-    public ResultSet getPrimaryKeys(String s, String s2, String s3) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public ResultSet getPrimaryKeys(String catalog, String schema, String tableName) throws SQLException {
+        List<ColumnData> columnList = new ArrayList<>();
+        String query;
+
+        try (Statement stmt = this.conn.createStatement()) {
+            if (catalog != null)
+                query = Sqlite3.mprintf("PRAGMA %Q.table_info(%Q)", catalog, tableName);
+            else
+                query = Sqlite3.mprintf("PRAGMA table_info(%Q)", tableName);
+
+            try (ResultSet rs = stmt.executeQuery(query)) {
+                while (rs.next()) {
+                    ColumnData cd = new ColumnData(tableName, rs);
+
+                    if (cd.primaryKey == 0)
+                        continue;
+                    columnList.add(cd);
+                }
+            }
+        }
+
+        String constantQuery = "";
+
+        for (int lpc = 0; lpc < columnList.size(); lpc++) {
+            if (!constantQuery.isEmpty())
+                constantQuery += " UNION ALL ";
+            constantQuery += "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME," +
+                    "? AS COLUMN_NAME, ? AS KEY_SEQ, null AS PK_NAME ";
+        }
+        constantQuery += " ORDER BY COLUMN_NAME";
+
+        PreparedStatement ps = this.conn.prepareStatement(constantQuery);
+
+        ps.closeOnCompletion();
+
+        int index = 1;
+
+        for (ColumnData column : columnList) {
+            ps.setString(index++, catalog);
+            ps.setString(index++, tableName);
+            ps.setString(index++, column.name);
+            ps.setInt(index++, column.primaryKey);
+        }
+
+        return ps.executeQuery();
     }
 
     @Override
