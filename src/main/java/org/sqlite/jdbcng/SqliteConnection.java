@@ -224,15 +224,15 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public Statement createStatement() throws SQLException {
-        return this.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        return this.trackStatement(this.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY));
     }
 
     @Override
     public PreparedStatement prepareStatement(String s) throws SQLException {
-        return this.prepareStatement(s,
+        return this.trackStatement(this.prepareStatement(s,
                 ResultSet.TYPE_FORWARD_ONLY,
                 ResultSet.CONCUR_READ_ONLY,
-                ResultSet.CLOSE_CURSORS_AT_COMMIT);
+                ResultSet.CLOSE_CURSORS_AT_COMMIT));
     }
 
     @Override
@@ -281,12 +281,13 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     @Override
     public synchronized void close() throws SQLException {
         if (!this.closer.isClosed()) {
-            /*
-             * JDBC Spec 9.4.4.1: All Statement objects created from a given
-             * Connection object will be closed when the close method for
-             * the Connection object is called.
-             */
             synchronized (this.statements) {
+                /*
+                 * JDBC Spec 9.4.4.1: All Statement objects created from a given
+                 * Connection object will be closed when the close method for
+                 * the Connection object is called.
+                 */
+
                 while (!this.statements.isEmpty()) {
                     WeakRefWithEquals<Statement> stmtRef = this.statements.remove(this.statements.size() - 1);
                     Statement stmt = stmtRef.get();
@@ -484,7 +485,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         this.clearWarnings();
         requireResultSetType(resultSetType, resultSetConcurrency, resultSetHoldability);
 
-        return this.trackStatement(new SqliteStatement(this));
+        return new SqliteStatement(this);
     }
 
     @Override
@@ -502,7 +503,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                 Pointer.pointerToCString(this.nativeSQL(s)), -1, stmt_out, Pointer.NULL),
                 this.db);
 
-        return this.trackStatement(new SqlitePreparedStatement(this, stmt_out.get()));
+        return new SqlitePreparedStatement(this, stmt_out.get());
     }
 
     @Override

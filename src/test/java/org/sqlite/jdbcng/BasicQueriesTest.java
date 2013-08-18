@@ -105,6 +105,8 @@ public class BasicQueriesTest {
 
             assertEquals(false, rs.next());
 
+            ps.close();
+
             ps = conn.prepareStatement("INSERT INTO test_table VALUES (?, ?, ?)");
             ps.setInt(1, 2);
             ps.setString(2, "Eve");
@@ -120,6 +122,8 @@ public class BasicQueriesTest {
 
             assertEquals(true, rs.next());
             // XXX assertEquals("2013-08-11 05:05:13.000", rs.getString(3));
+
+            ps.close();
         }
     }
 }

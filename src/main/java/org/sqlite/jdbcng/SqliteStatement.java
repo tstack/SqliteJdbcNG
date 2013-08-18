@@ -39,8 +39,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static java.util.logging.Level.WARNING;
-
 public class SqliteStatement extends SqliteCommon implements Statement {
     private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
 
@@ -100,10 +98,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                 Pointer.pointerToCString(escapedString), -1, stmt_out, Pointer.NULL),
                 this.conn.getHandle());
 
-        Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
+        Pointer<Sqlite3.Statement> stmt = stmt_out.get();
 
-        if (Sqlite3.sqlite3_stmt_readonly(stmt) == 0)
+        if (Sqlite3.sqlite3_stmt_readonly(stmt) == 0) {
+            Sqlite3.sqlite3_finalize(stmt);
             throw new SQLNonTransientException("SQL statement is not a query");
+        }
 
         this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
 
@@ -133,16 +133,16 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
     @Override
     public synchronized void close() throws SQLException {
-        if (this.lastResult != null) {
-            Pointer<Sqlite3.Statement> stmt = this.lastResult.getHandle();
+        if (!this.closed) {
+            this.closed = true;
 
-            this.lastResult.close();
-            this.lastResult = null;
-            stmt.release();
+            if (this.lastResult != null) {
+                this.lastResult.close();
+                this.lastResult = null;
+            }
+
             this.conn.statementClosed(this);
         }
-
-        this.closed = true;
     }
 
     @Override
@@ -240,7 +240,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                 Pointer.pointerToCString(escapedString), -1, stmt_out, Pointer.NULL),
                 this.conn.getHandle());
 
-        Pointer<Sqlite3.Statement> stmt = Sqlite3.withReleaser(stmt_out.get());
+        Pointer<Sqlite3.Statement> stmt = stmt_out.get();
 
         try {
             if (Sqlite3.sqlite3_stmt_readonly(stmt) != 0) {
@@ -281,7 +281,9 @@ public class SqliteStatement extends SqliteCommon implements Statement {
             }
         }
         finally {
-            Pointer.release(stmt);
+            if (stmt != null) {
+                Sqlite3.sqlite3_finalize(stmt);
+            }
         }
 
         if (this.lastResult != null)
@@ -488,19 +490,6 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         requireOpened();
 
         return this.closeOnCompletion;
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-        super.finalize();
-
-        if (!this.closed) {
-            LOGGER.log(WARNING,
-                    "SQLite database statement was not explicitly closed -- {0}",
-                    this.conn.getURL());
-
-            this.close();
-        }
     }
 
     @Override

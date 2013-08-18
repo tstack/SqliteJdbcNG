@@ -37,12 +37,31 @@ import java.sql.*;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Library("sqlite3")
 public class Sqlite3 {
 
+    private static final Logger LOGGER = Logger.getLogger(Sqlite3.class.getName());
+
+    public static abstract class LogBase extends Callback<LogBase> {
+        public abstract void apply(Pointer<Void> userdata, int errcode, Pointer<Byte> msg);
+    }
+
+    public static class LogRepeater extends LogBase {
+        @Override
+        public void apply(Pointer<Void> userdata, int errcode, Pointer<Byte> msg) {
+            LOGGER.log(Level.SEVERE, "sqlite3_log({0}, {1})",
+                    new Object[] { errcode, msg.getCString() });
+        }
+    }
+
+    private static final LogRepeater REPEATER = new LogRepeater();
+
     static {
         BridJ.register();
+        sqlite3_config(ConfigOption.SQLITE_CONFIG_LOG.value(), Pointer.pointerTo(REPEATER), null);
     }
 
     public static class NoopReleaser implements Pointer.Releaser {
@@ -51,24 +70,35 @@ public class Sqlite3 {
         }
     }
 
-    public static class StatementReleaser implements Pointer.Releaser {
-        @Override
-        public void release(Pointer<?> stmt) {
-            sqlite3_finalize(stmt.as(Statement.class));
-        }
-    }
-
-    private static final StatementReleaser STATEMENT_RELEASER = new StatementReleaser();
-
     public static class DbReleaser implements Pointer.Releaser {
 
         @Override
-        public void release(Pointer<?> db) {
+        public void release(Pointer<?> voidDb) {
+            Pointer<Statement> stmt;
+            Pointer<Sqlite3Db> db = voidDb.as(Sqlite3Db.class);
+
+            /*
+             * JDBC Spec 9.4.4.1: All Statement objects created from a given
+             * Connection object will be closed when the close method for
+             * the Connection object is called.
+             */
+            while ((stmt = Sqlite3.sqlite3_next_stmt(db, null)) != null) {
+                Pointer<Byte> originalSql;
+
+                originalSql = Sqlite3.sqlite3_sql(stmt);
+                if (originalSql != null) {
+                    LOGGER.log(Level.WARNING,
+                            "Statement was not explicitly closed -- {0}",
+                            new Object[] { originalSql.getCString() });
+                }
+                Sqlite3.sqlite3_finalize(stmt);
+            }
+
             try {
-                sqlite3_close_v2(db.as(Sqlite3Db.class));
+                sqlite3_close_v2(db);
             }
             catch (UnsatisfiedLinkError e) {
-                sqlite3_close(db.as(Sqlite3Db.class));
+                sqlite3_close(db);
             }
         }
     }
@@ -115,6 +145,8 @@ public class Sqlite3 {
     public static native int sqlite3_libversion_number();
     public static native Pointer<Byte> sqlite3_sourceid();
 
+    public static native int sqlite3_config(int option, Object... varargs);
+
     public static native Pointer<Byte> sqlite3_mprintf(Pointer<Byte> fmt, Object... varargs);
     public static native void sqlite3_free(Pointer<Byte> mem);
 
@@ -128,6 +160,8 @@ public class Sqlite3 {
     public static native int sqlite3_close(Pointer<Sqlite3Db> db);
     public static native int sqlite3_close_v2(Pointer<Sqlite3Db> db);
 
+    public static native Pointer<Statement> sqlite3_next_stmt(Pointer<Sqlite3Db> db,
+                                                              Pointer<Statement> stmt);
     public static native int sqlite3_table_column_metadata(
             Pointer<Sqlite3Db> db,
             Pointer<Byte> dbName,
@@ -174,6 +208,7 @@ public class Sqlite3 {
                                                 Pointer<Pointer<Statement>> stmt,
                                                 Pointer<Pointer<Byte>> tail);
 
+    public static native Pointer<Byte> sqlite3_sql(Pointer<Statement> stmt);
     public static native int sqlite3_step(Pointer<Statement> stmt);
 
     public static native int sqlite3_stmt_readonly(Pointer<Statement> stmt);
@@ -208,16 +243,6 @@ public class Sqlite3 {
 
     public static final Pointer<BufferDestructorBase> SQLITE_STATIC = null;
     public static final Pointer<BufferDestructorBase> SQLITE_TRANSIENT = constantFunctionValue(-1);
-
-    public static Pointer<Statement> withReleaser(Pointer<Statement> stmt) {
-        try {
-            return Pointer.pointerToAddress(stmt.getPeer(), Statement.class, STATEMENT_RELEASER);
-        }
-        catch (Throwable e) {
-            STATEMENT_RELEASER.release(stmt);
-            throw e;
-        }
-    }
 
     public static Pointer<Sqlite3Db> withDbReleaser(Pointer<Sqlite3Db> db) {
         try {
@@ -320,6 +345,49 @@ public class Sqlite3 {
         }
     }
 
+    public enum ConfigOption {
+        SQLITE_CONFIG_SINGLETHREAD(1), /* nil */
+        SQLITE_CONFIG_MULTITHREAD(2), /* nil */
+        SQLITE_CONFIG_SERIALIZED(3), /* nil */
+        SQLITE_CONFIG_MALLOC(4), /* sqlite3_mem_methods* */
+        SQLITE_CONFIG_GETMALLOC(5), /* sqlite3_mem_methods* */
+        SQLITE_CONFIG_SCRATCH(6), /* void*, int sz, int N */
+        SQLITE_CONFIG_PAGECACHE(7), /* void*, int sz, int N */
+        SQLITE_CONFIG_HEAP(8), /* void*, int nByte, int min */
+        SQLITE_CONFIG_MEMSTATUS(9), /* boolean */
+        SQLITE_CONFIG_MUTEX(10), /* sqlite3_mutex_methods* */
+        SQLITE_CONFIG_GETMUTEX(11), /* sqlite3_mutex_methods* */
+        SQLITE_CONFIG_LOOKASIDE(13), /* int int */
+        SQLITE_CONFIG_PCACHE(14), /* no-op */
+        SQLITE_CONFIG_GETPCACHE(15), /* no-op */
+        SQLITE_CONFIG_LOG(16), /* xFunc, void* */
+        SQLITE_CONFIG_URI(17), /* int */
+        SQLITE_CONFIG_PCACHE2(18), /* sqlite3_pcache_methods2* */
+        SQLITE_CONFIG_GETPCACHE2(19); /* sqlite3_pcache_methods2* */
+
+        private static final HashMap<Integer, ConfigOption> VALUE_TO_ENUM = new HashMap<>();
+
+        static {
+            for (ConfigOption rc : values()) {
+                VALUE_TO_ENUM.put(rc.value, rc);
+            }
+        }
+
+        public static ConfigOption valueOf(int value) {
+            return VALUE_TO_ENUM.get(value);
+        }
+
+        private final int value;
+
+        ConfigOption(int value_in) {
+            this.value = value_in;
+        }
+
+        public int value() {
+            return this.value;
+        }
+    }
+
     public enum ActionCode {
         SQLITE_CREATE_INDEX(1),   /* Index Name      Table Name      */
         SQLITE_CREATE_TABLE(2),   /* Table Name      NULL            */
@@ -376,7 +444,7 @@ public class Sqlite3 {
         public int value() {
             return this.value;
         }
-    };
+    }
 
     public enum AuthResult {
         SQLITE_OK(0),

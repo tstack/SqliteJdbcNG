@@ -30,9 +30,9 @@
 package org.sqlite.jdbcng;
 
 import org.sqlite.jdbcng.bridj.Sqlite3;
+import org.sqlite.jdbcng.internal.ColumnData;
 import org.sqlite.jdbcng.internal.SQLKeywords;
 
-import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -777,45 +777,6 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                         "SELECT 'VIEW' as TABLE_TYPE");
     }
 
-    private static class ColumnData {
-        public ColumnData(String tableName, ResultSet rs) throws SQLException {
-            int parenIndex, sqlType = Types.VARCHAR;
-
-            this.index = rs.getInt("cid") + 1;
-            this.tableName = tableName;
-            this.name = rs.getString("name");
-            this.fullType = rs.getString("type").toUpperCase();
-            parenIndex = this.fullType.indexOf('(');
-            if (parenIndex != -1)
-                this.type = this.fullType.substring(0, parenIndex);
-            else
-                this.type = this.fullType;
-            try {
-                Field typeField = Types.class.getField(this.type);
-
-                sqlType = typeField.getInt(Types.class);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                if ("DATETIME".equals(this.type))
-                    sqlType = Types.TIMESTAMP;
-            }
-            this.sqlType = sqlType;
-
-            this.notNull = rs.getBoolean("notnull");
-            this.defaultValue = rs.getString("dflt_value");
-            this.primaryKey = rs.getInt("pk");
-        }
-
-        public final int index;
-        public final String tableName;
-        public final String name;
-        public final String fullType;
-        public final String type;
-        public final int sqlType;
-        public final boolean notNull;
-        public final String defaultValue;
-        public final int primaryKey;
-    }
-
     @Override
     public ResultSet getColumns(String catalog,
                                 String schemaPattern,
@@ -854,7 +815,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
                 try (ResultSet rs = stmt.executeQuery(query)) {
                     while (rs.next()) {
-                        ColumnData cd = new ColumnData(tableName, rs);
+                        ColumnData cd = new ColumnData(this.conn.getHandle(), catalog, tableName, rs);
 
                         if (!cd.name.matches(columnNamePattern))
                             continue;
@@ -893,10 +854,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             ps.setString(index++, column.type);
             ps.setInt(index++, 0);
             ps.setInt(index++, 0);
-            ps.setInt(index++, column.notNull ? columnNoNulls : columnNullable);
+            ps.setInt(index++, column.notNull);
             ps.setString(index++, column.defaultValue);
             ps.setInt(index++, column.index);
-            ps.setString(index++, column.notNull ? "NO" : "YES");
+            ps.setString(index++, column.notNull == columnNoNulls ? "NO" : "YES");
             ps.setInt(index++, 0);
             ps.setInt(index++, 0);
         }
@@ -937,7 +898,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
             try (ResultSet rs = stmt.executeQuery(query)) {
                 while (rs.next()) {
-                    ColumnData cd = new ColumnData(tableName, rs);
+                    ColumnData cd = new ColumnData(this.conn.getHandle(), catalog, tableName, rs);
 
                     if (cd.primaryKey == 0)
                         continue;

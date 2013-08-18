@@ -53,7 +53,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private static final Pattern TIME_PATTERN = Pattern.compile(
             "(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.(\\d{3}))?)?");
 
-    private final SqliteStatement parent;
+    final SqliteStatement parent;
     private final Pointer<Sqlite3.Statement> stmt;
     private final int maxRows;
     private final int columnCount;
@@ -130,12 +130,16 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     @Override
     public synchronized void close() throws SQLException {
         if (!this.closed) {
-            if (this.rowNumber > 0 && this.stmt != null && this.stmt.get() != null) {
+            this.closed = true;
+
+            if (this.rowNumber > 0 && this.stmt.get() != null) {
                 Sqlite3.checkOk(Sqlite3.sqlite3_reset(this.stmt), this.parent.getDbHandle());
                 this.rowNumber = 0;
             }
+            if (!(this.parent instanceof SqlitePreparedStatement)) {
+                Sqlite3.sqlite3_finalize(this.stmt);
+            }
             this.lastColumn = -1;
-            this.closed = true;
 
             this.parent.resultSetClosed();
         }
@@ -350,6 +354,8 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public synchronized ResultSetMetaData getMetaData() throws SQLException {
+        requireOpen();
+
         if (this.metadata == null)
             this.metadata = new SqliteResultSetMetadata(this);
 

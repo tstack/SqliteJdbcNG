@@ -61,7 +61,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             throws SQLException {
         super(conn);
 
-        this.stmt = Sqlite3.withReleaser(stmt);
+        this.stmt = stmt;
         this.paramCount = Sqlite3.sqlite3_bind_parameter_count(stmt);
         this.paramValues = new Object[this.paramCount];
         this.paramTypes = new int[this.paramCount];
@@ -75,6 +75,15 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             throw new IllegalArgumentException("Parameter index must be less than or equal to " + this.paramCount);
 
         return index;
+    }
+
+    @Override
+    public synchronized void close() throws SQLException {
+        if (!this.closed) {
+            super.close();
+
+            Sqlite3.sqlite3_finalize(this.stmt);
+        }
     }
 
     void bindParameters(Object[] values, int[] types) throws SQLException {

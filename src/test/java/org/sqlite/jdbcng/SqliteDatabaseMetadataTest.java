@@ -124,7 +124,7 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
     private static final String[] TABLE_DUMPS = {
             "|main|null|prim_table|TABLE|CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)|null|null|null|row_id|SYSTEM|",
             "|main|null|test_table|TABLE|CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)|null|null|null|row_id|SYSTEM|",
-            "|main|null|type_table|TABLE|CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL)|null|null|null|row_id|SYSTEM|",
+            "|main|null|type_table|TABLE|CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL(10,2))|null|null|null|row_id|SYSTEM|",
     };
 
     @Test

@@ -31,6 +31,7 @@ package org.sqlite.jdbcng;
 
 import org.bridj.Pointer;
 import org.sqlite.jdbcng.bridj.Sqlite3;
+import org.sqlite.jdbcng.internal.ColumnData;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -38,30 +39,27 @@ import java.sql.SQLNonTransientException;
 
 public class SqliteResultSetMetadata implements ResultSetMetaData {
     private final SqliteResultSet rs;
-    private final boolean readOnly;
     private final int columnCount;
-    private final String[] columnNames;
-    private final String[] columnDeclType;
-    private final String[] databaseNames;
-    private final String[] tableNames;
-    private final String[] originNames;
+    private final ColumnData[] columnList;
+    private final String[] columnLabels;
 
     public SqliteResultSetMetadata(SqliteResultSet rs) {
+        int notNull = columnNullableUnknown;
+        int primaryKey = 0;
+        boolean autoInc = false;
+
         this.rs = rs;
-        this.readOnly = Sqlite3.sqlite3_stmt_readonly(rs.getHandle()) != 0;
         this.columnCount = Sqlite3.sqlite3_column_count(rs.getHandle());
-        this.columnNames = new String[this.columnCount];
-        this.columnDeclType = new String[this.columnCount];
-        this.databaseNames = new String[this.columnCount];
-        this.tableNames = new String[this.columnCount];
-        this.originNames = new String[this.columnCount];
+        this.columnLabels = new String[this.columnCount];
+        this.columnList = new ColumnData[this.columnCount];
 
         for (int lpc = 0; lpc < this.columnCount; lpc++) {
             Pointer<Byte> ptr = Sqlite3.sqlite3_column_name(rs.getHandle(), lpc);
+            String type;
 
             if (ptr == null)
                 throw new OutOfMemoryError();
-            this.columnNames[lpc] = ptr.getCString();
+            this.columnLabels[lpc] = ptr.getCString();
 
             ptr = Sqlite3.sqlite3_column_decltype(rs.getHandle(), lpc);
             if (ptr == null) {
@@ -70,31 +68,62 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
                 exprType = Sqlite3.sqlite3_column_type(rs.getHandle(), lpc);
                 dt = Sqlite3.DataType.valueOf(exprType);
-                this.columnDeclType[lpc] = dt.getSqlType();
+                type = dt.getSqlType();
             }
             else {
-                this.columnDeclType[lpc] = ptr.getCString();
+                type = ptr.getCString();
             }
 
+            String dbName = "", tableName = "", columnName = "";
+
             try {
-                ptr = Sqlite3.sqlite3_column_database_name(rs.getHandle(), lpc);
-                this.databaseNames[lpc] = ptr != null ? ptr.getCString() : "";
-                ptr = Sqlite3.sqlite3_column_table_name(rs.getHandle(), lpc);
-                this.tableNames[lpc] = ptr != null ? ptr.getCString() : "";
-                ptr = Sqlite3.sqlite3_column_origin_name(rs.getHandle(), lpc);
-                this.originNames[lpc] = ptr != null ? ptr.getCString() : "";
+                if ((ptr = Sqlite3.sqlite3_column_database_name(rs.getHandle(), lpc)) != null)
+                    dbName = ptr.getCString();
+                if ((ptr = Sqlite3.sqlite3_column_table_name(rs.getHandle(), lpc)) != null)
+                    tableName = ptr.getCString();
+                if ((ptr = Sqlite3.sqlite3_column_origin_name(rs.getHandle(), lpc)) != null)
+                    columnName = ptr.getCString();
+                if (!dbName.isEmpty()) {
+                    Pointer<Pointer<Byte>> dataType = Pointer.allocatePointer(Byte.class);
+                    Pointer<Pointer<Byte>> collSeq = Pointer.allocatePointer(Byte.class);
+                    Pointer<Integer> notNullInt = Pointer.allocateInt();
+                    Pointer<Integer> primaryKeyInt = Pointer.allocateInt();
+                    Pointer<Integer> autoIncInt = Pointer.allocateInt();
+
+                    Sqlite3.sqlite3_table_column_metadata(this.rs.parent.getDbHandle(),
+                            Pointer.pointerToCString(dbName),
+                            Pointer.pointerToCString(tableName),
+                            Pointer.pointerToCString(columnName),
+                            dataType,
+                            collSeq,
+                            notNullInt,
+                            primaryKeyInt,
+                            autoIncInt);
+
+                    notNull = notNullInt.getInt() != 0 ? columnNoNulls : columnNullable;
+
+                }
             }
             catch (UnsatisfiedLinkError e) {
-                this.databaseNames[lpc] = "";
-                this.tableNames[lpc] = "";
-                this.originNames[lpc] = "";
             }
+
+            this.columnList[lpc] = new ColumnData(
+                    this.rs.parent.getDbHandle(),
+                    dbName,
+                    tableName,
+                    columnName,
+                    -1,
+                    "",
+                    type,
+                    notNull,
+                    primaryKey,
+                    autoInc);
         }
     }
 
     int findColumn(String label) throws SQLException {
-        for (int lpc = 0; lpc < this.columnNames.length; lpc++) {
-            if (this.columnNames[lpc].equals(label))
+        for (int lpc = 0; lpc < this.columnLabels.length; lpc++) {
+            if (this.columnLabels[lpc].equals(label))
                 return lpc + 1;
         }
 
@@ -108,12 +137,12 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public boolean isAutoIncrement(int i) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.columnList[this.rs.checkColumnIndex(i)].autoInc;
     }
 
     @Override
     public boolean isCaseSensitive(int i) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
@@ -128,27 +157,27 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public int isNullable(int i) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.columnList[this.rs.checkColumnIndex(i)].notNull;
     }
 
     @Override
     public boolean isSigned(int i) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public int getColumnDisplaySize(int i) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getPrecision(i) + 1;
     }
 
     @Override
     public String getColumnLabel(int i) throws SQLException {
-        return this.columnNames[this.rs.checkColumnIndex(i)];
+        return this.columnLabels[this.rs.checkColumnIndex(i)];
     }
 
     @Override
     public String getColumnName(int i) throws SQLException {
-        return this.originNames[this.rs.checkColumnIndex(i)];
+        return this.columnList[this.rs.checkColumnIndex(i)].name;
     }
 
     @Override
@@ -158,32 +187,32 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public int getPrecision(int i) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.columnList[this.rs.checkColumnIndex(i)].precision;
     }
 
     @Override
     public int getScale(int i) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.columnList[this.rs.checkColumnIndex(i)].scale;
     }
 
     @Override
     public String getTableName(int i) throws SQLException {
-        return this.tableNames[this.rs.checkColumnIndex(i)];
+        return this.columnList[this.rs.checkColumnIndex(i)].tableName;
     }
 
     @Override
     public String getCatalogName(int i) throws SQLException {
-        return this.databaseNames[this.rs.checkColumnIndex(i)];
+        return this.columnList[this.rs.checkColumnIndex(i)].dbName;
     }
 
     @Override
     public int getColumnType(int i) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.columnList[this.rs.checkColumnIndex(i)].sqlType;
     }
 
     @Override
     public String getColumnTypeName(int i) throws SQLException {
-        return this.columnDeclType[this.rs.checkColumnIndex(i)];
+        return this.columnList[this.rs.checkColumnIndex(i)].type;
     }
 
     @Override

@@ -60,7 +60,7 @@ public class SqliteTestHelper {
             stmt.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
             stmt.execute("INSERT INTO test_table VALUES (1, 'test')");
 
-            stmt.execute("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL)");
+            stmt.execute("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL(10,2))");
             stmt.execute("CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)");
         }
     }
