@@ -43,6 +43,8 @@ import java.util.logging.Logger;
 @Library("sqlite3")
 public class Sqlite3 {
 
+    public static final boolean SQLITE_ENABLE_COLUMN_METADATA;
+
     private static final Logger LOGGER = Logger.getLogger(Sqlite3.class.getName());
 
     public static abstract class LogBase extends Callback<LogBase> {
@@ -62,6 +64,16 @@ public class Sqlite3 {
     static {
         BridJ.register();
         sqlite3_config(ConfigOption.SQLITE_CONFIG_LOG.value(), Pointer.pointerTo(REPEATER), null);
+
+        boolean result;
+
+        try {
+            result = sqlite3_compileoption_used(Pointer.pointerToCString("SQLITE_ENABLE_COLUMN_METADATA")) != 0;
+        }
+        catch (UnsatisfiedLinkError e) {
+            result = false;
+        }
+        SQLITE_ENABLE_COLUMN_METADATA = result;
     }
 
     public static class NoopReleaser implements Pointer.Releaser {
@@ -145,6 +157,7 @@ public class Sqlite3 {
     public static native int sqlite3_libversion_number();
     public static native Pointer<Byte> sqlite3_sourceid();
 
+    public static native int sqlite3_compileoption_used(Pointer<Byte> name);
     public static native int sqlite3_config(int option, Object... varargs);
 
     public static native Pointer<Byte> sqlite3_mprintf(Pointer<Byte> fmt, Object... varargs);

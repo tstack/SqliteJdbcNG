@@ -37,13 +37,36 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ColumnData {
     private static final Pattern TYPE_PATTERN = Pattern.compile(
-            "([A-Z_0-9]+)\\s*" +
+            "([A-Z_0-9 ]+)\\s*" +
                     "(?:\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+))?\\s*\\))?");
+
+    private static final Map<String, Integer> TYPE_MAP = new HashMap<>();
+
+    static {
+        /* XXX this isn't the right way to do this... */
+        TYPE_MAP.put("INT", Types.INTEGER);
+        TYPE_MAP.put("MEDIUMINT", Types.INTEGER);
+        TYPE_MAP.put("INT2", Types.INTEGER);
+        TYPE_MAP.put("INT4", Types.INTEGER);
+        TYPE_MAP.put("INT8", Types.INTEGER);
+        TYPE_MAP.put("UNSIGNED BIG INT", Types.BIGINT);
+
+        TYPE_MAP.put("NATIVE CHARACTER", Types.NCHAR);
+        TYPE_MAP.put("VARYING CHARACTER", Types.NCHAR);
+        TYPE_MAP.put("TEXT", Types.VARCHAR);
+        TYPE_MAP.put("CHARACTER", Types.CHAR);
+
+        TYPE_MAP.put("DOUBLE PRECISION", Types.REAL);
+
+        TYPE_MAP.put("DATETIME", Types.TIMESTAMP);
+    }
 
     public final String dbName;
     public final String tableName;
@@ -83,7 +106,7 @@ public class ColumnData {
         scale = 0;
         m = TYPE_PATTERN.matcher(this.fullType);
         if (m.matches()) {
-            this.type = m.group(1);
+            this.type = m.group(1).trim();
             if (m.group(2) != null) {
                 precision = Integer.valueOf(m.group(2));
                 if (m.group(3) != null)
@@ -101,8 +124,12 @@ public class ColumnData {
 
             sqlType = typeField.getInt(Types.class);
         } catch (NoSuchFieldException | IllegalAccessException e) {
-            if ("DATETIME".equals(this.type))
-                sqlType = Types.TIMESTAMP;
+            Integer mappedType = TYPE_MAP.get(this.type);
+
+            if (mappedType == null)
+                sqlType = Types.VARCHAR;
+            else
+                sqlType = mappedType;
         }
         this.sqlType = sqlType;
         this.notNull = notNull;

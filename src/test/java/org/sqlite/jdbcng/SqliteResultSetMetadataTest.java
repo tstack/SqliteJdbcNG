@@ -30,18 +30,21 @@
 package org.sqlite.jdbcng;
 
 import org.junit.Test;
+import org.sqlite.jdbcng.bridj.Sqlite3;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 import java.sql.Types;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 public class SqliteResultSetMetadataTest extends SqliteTestHelper {
     @Test
     public void testColumnType() throws Exception {
+        assumeTrue(Sqlite3.SQLITE_ENABLE_COLUMN_METADATA);
+
         try (Statement stmt = this.conn.createStatement()) {
             try (ResultSet rs = stmt.executeQuery("SELECT * FROM type_table")) {
                 ResultSetMetaData rsm = rs.getMetaData();
@@ -55,6 +58,28 @@ public class SqliteResultSetMetadataTest extends SqliteTestHelper {
                 assertEquals("name", rsm.getColumnLabel(1));
                 assertEquals("name", rsm.getColumnName(1));
                 assertEquals(Types.VARCHAR, rsm.getColumnType(1));
+
+                assertFalse(rs.next());
+                assertEquals(Types.VARCHAR, rsm.getColumnType(1));
+
+                rs.close();
+                assertEquals(Types.VARCHAR, rsm.getColumnType(1));
+            }
+
+            try (ResultSet rs = stmt.executeQuery("SELECT name as namelabel, width FROM type_table")) {
+                ResultSetMetaData rsm = rs.getMetaData();
+
+                assertEquals(2, rsm.getColumnCount());
+
+                assertEquals("main", rsm.getCatalogName(1));
+                assertEquals("type_table", rsm.getTableName(1));
+                assertFalse(rsm.isAutoIncrement(1));
+                assertEquals(ResultSetMetaData.columnNullable, rsm.isNullable(1));
+                assertEquals("namelabel", rsm.getColumnLabel(1));
+                assertEquals("name", rsm.getColumnName(1));
+                assertEquals(Types.VARCHAR, rsm.getColumnType(1));
+
+                assertTrue(rsm.isSigned(2));
             }
         }
     }

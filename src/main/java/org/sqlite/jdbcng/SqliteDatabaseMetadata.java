@@ -33,6 +33,7 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 import org.sqlite.jdbcng.internal.ColumnData;
 import org.sqlite.jdbcng.internal.SQLKeywords;
 
+import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;

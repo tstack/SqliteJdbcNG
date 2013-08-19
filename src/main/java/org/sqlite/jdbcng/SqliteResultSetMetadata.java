@@ -162,7 +162,7 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public boolean isSigned(int i) throws SQLException {
-        return true;
+        return !this.getColumnTypeName(i).startsWith("UNSIGNED");
     }
 
     @Override

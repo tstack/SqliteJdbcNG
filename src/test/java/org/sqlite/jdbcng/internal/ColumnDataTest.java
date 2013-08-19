@@ -29,53 +29,58 @@
 
 package org.sqlite.jdbcng.internal;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
+import org.junit.Test;
+import org.sqlite.jdbcng.SqliteTestHelper;
 
-public class SQLKeywords {
-    static final String[] readResource(String name) throws IOException {
-        InputStream is = SQLKeywords.class.getResourceAsStream(name);
+import java.sql.ResultSetMetaData;
+import java.sql.Types;
 
-        if (is == null)
-            throw new RuntimeException("Bad resource name -- " + name);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-            List<String> keywords = new ArrayList<String>();
-            String line;
+import static org.junit.Assert.assertEquals;
 
-            while ((line = reader.readLine()) != null) {
-                keywords.add(line);
-            }
+public class ColumnDataTest extends SqliteTestHelper {
+    private ColumnData build(String fullType) {
+        ColumnData retval = new ColumnData(this.sqliteConnection.getHandle(),
+                "main",
+                "test_table",
+                "col1",
+                1,
+                "",
+                fullType,
+                ResultSetMetaData.columnNoNulls,
+                0,
+                false);
 
-            return keywords.toArray(new String[keywords.size()]);
-        }
+        return retval;
     }
 
-    private final String[] sqlKeywords;
-    private final String[] sqliteKeywords;
+    @Test
+    public void testConstructor() {
+        ColumnData cd;
 
-    public SQLKeywords() {
-        /*
-         * http://developer.mimer.com/validator/sql-reserved-words.tml
-         * sqlite-src/tool/mkkeywordhash.c
-         */
-        try {
-            this.sqlKeywords = readResource("/sql-keywords.txt");
-            this.sqliteKeywords = readResource("/sqlite-keywords.txt");
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Unable to read resources?", e);
-        }
-    }
+        cd = this.build("DECIMAL(");
+        assertEquals(Types.VARCHAR, cd.sqlType);
+        assertEquals("VARCHAR", cd.type);
 
-    public String[] getSqlKeywords() {
-        return this.sqlKeywords;
-    }
+        cd = this.build("DECIMAL ( 10 , 2 )");
+        assertEquals("DECIMAL", cd.type);
+        assertEquals(Types.DECIMAL, cd.sqlType);
+        assertEquals(10, cd.precision);
+        assertEquals(2, cd.scale);
 
-    public String[] getSqliteKeywords() {
-        return this.sqliteKeywords;
+        cd = this.build("DECIMAL ( 10 )");
+        assertEquals("DECIMAL", cd.type);
+        assertEquals(Types.DECIMAL, cd.sqlType);
+        assertEquals(10, cd.precision);
+        assertEquals(0, cd.scale);
+
+        cd = this.build("MEDIUMINT ( 10 )");
+        assertEquals("MEDIUMINT", cd.type);
+        assertEquals(Types.INTEGER, cd.sqlType);
+        assertEquals(10, cd.precision);
+        assertEquals(0, cd.scale);
+
+        cd = this.build("BLAH");
+        assertEquals("BLAH", cd.type);
+        assertEquals(Types.VARCHAR, cd.sqlType);
     }
 }

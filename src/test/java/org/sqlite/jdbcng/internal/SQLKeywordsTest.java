@@ -29,53 +29,11 @@
 
 package org.sqlite.jdbcng.internal;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
+import org.junit.Test;
 
-public class SQLKeywords {
-    static final String[] readResource(String name) throws IOException {
-        InputStream is = SQLKeywords.class.getResourceAsStream(name);
-
-        if (is == null)
-            throw new RuntimeException("Bad resource name -- " + name);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-            List<String> keywords = new ArrayList<String>();
-            String line;
-
-            while ((line = reader.readLine()) != null) {
-                keywords.add(line);
-            }
-
-            return keywords.toArray(new String[keywords.size()]);
-        }
-    }
-
-    private final String[] sqlKeywords;
-    private final String[] sqliteKeywords;
-
-    public SQLKeywords() {
-        /*
-         * http://developer.mimer.com/validator/sql-reserved-words.tml
-         * sqlite-src/tool/mkkeywordhash.c
-         */
-        try {
-            this.sqlKeywords = readResource("/sql-keywords.txt");
-            this.sqliteKeywords = readResource("/sqlite-keywords.txt");
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Unable to read resources?", e);
-        }
-    }
-
-    public String[] getSqlKeywords() {
-        return this.sqlKeywords;
-    }
-
-    public String[] getSqliteKeywords() {
-        return this.sqliteKeywords;
+public class SQLKeywordsTest {
+    @Test(expected = RuntimeException.class)
+    public void testReadResource() throws Exception {
+        SQLKeywords.readResource("non-existent-file.txt");
     }
 }
