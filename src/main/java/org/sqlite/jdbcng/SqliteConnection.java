@@ -242,7 +242,9 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public String nativeSQL(String s) throws SQLException {
-        return transform(s, HANDLER_MAP);
+        String retval = transform(s, HANDLER_MAP);
+
+        return retval;
     }
 
     @Override

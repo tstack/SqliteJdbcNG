@@ -36,7 +36,9 @@ import java.sql.SQLSyntaxErrorException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.sqlite.jdbcng.internal.EscapeParser.split;
 import static org.sqlite.jdbcng.internal.EscapeParser.transform;
 
 public class EscapeParserTest {
@@ -93,5 +95,15 @@ public class EscapeParserTest {
     @Test(expected = SQLSyntaxErrorException.class)
     public void testNoKeyword() throws Exception {
         transform("{ bar}", this.handlerMap);
+    }
+
+    @Test
+    public void testSplit() throws Exception {
+        assertArrayEquals(new String[] { "foo" }, split(" foo "));
+        assertArrayEquals(new String[] { "foo", "bar" }, split("foo, bar"));
+        assertArrayEquals(new String[] { "(select foo, bar)", "baz" },
+                split("(select foo, bar), baz"));
+        assertArrayEquals(new String[] { "(select foo, bar)", "baz", "'quoted, comma'" },
+                split("(select foo, bar), baz, 'quoted, comma'"));
     }
 }

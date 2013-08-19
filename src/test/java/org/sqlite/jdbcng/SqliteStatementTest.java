@@ -306,6 +306,7 @@ public class SqliteStatementTest extends SqliteTestHelper {
             "|2011-10-06|",
             "|15:00:00|",
             "|2011-10-06 15:00:00|",
+            "|fooBAR,BAZ|",
             "|0|",
     };
 
@@ -324,6 +325,7 @@ public class SqliteStatementTest extends SqliteTestHelper {
                             "SELECT {d '2011-10-06'} AS RESULT UNION ALL " +
                             "SELECT {t '15:00:00'} AS RESULT UNION ALL " +
                             "SELECT {ts '2011-10-06 15:00:00'} AS RESULT UNION ALL " +
+                            "SELECT {fn concat('foo', (select 'BAR,BAZ'))} AS RESULT UNION ALL " +
                             "SELECT 'FOO' LIKE '\\%' {escape '\\'} AS RESULT")) {
                 assertArrayEquals(ESCAPE_RESULTS, this.formatResultSet(rs));
             }

@@ -31,6 +31,8 @@ package org.sqlite.jdbcng.internal;
 
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class EscapeParser {
@@ -55,6 +57,63 @@ public class EscapeParser {
 
     private EscapeParser() {
 
+    }
+
+    private static int split(int depth, String sql, int start, List<String> accum) {
+        ParserState state = ParserState.STATE_SQL;
+
+        for (int lpc = start; lpc < sql.length(); lpc++) {
+            char ch = sql.charAt(lpc);
+
+            switch (state) {
+                case STATE_SQL:
+                    switch (ch) {
+                        case ',':
+                            if (depth == 0) {
+                                accum.add(sql.substring(start, lpc).trim());
+                                start = lpc + 1;
+                            }
+                            break;
+                        case '(':
+                            lpc = split(depth + 1, sql, lpc + 1, accum);
+                            break;
+                        case ')':
+                            return lpc;
+                        case '\'':
+                            state = ParserState.STATE_SINGLE_STRING;
+                            break;
+                        case '"':
+                            state = ParserState.STATE_DOUBLE_STRING;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                case STATE_SINGLE_STRING:
+                    if (ch == '\'')
+                        state = ParserState.STATE_SQL;
+                    break;
+                case STATE_DOUBLE_STRING:
+                    if (ch == '"')
+                        state = ParserState.STATE_SQL;
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+        }
+
+        if (depth == 0) {
+            accum.add(sql.substring(start).trim());
+        }
+
+        return sql.length();
+    }
+
+    public static String[] split(String sql) {
+        List<String> accum = new ArrayList<>();
+
+        split(0, sql, 0, accum);
+        return accum.toArray(new String[accum.size()]);
     }
 
     private static int transform(int depth, String escapedSql, int start, StringBuilder dest, Map<String, EscapeHandler> handlerMap) throws SQLException {

@@ -29,6 +29,8 @@
 
 package org.sqlite.jdbcng.internal;
 
+import org.sqlite.jdbcng.bridj.Sqlite3;
+
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +38,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class FunctionEscapeHandler implements EscapeHandler {
-    private static final Pattern FUNC_PATTERN = Pattern.compile("([a-zA-Z0-9_]+)(\\(.*\\))?$");
+    private static final Pattern FUNC_PATTERN = Pattern.compile("([a-zA-Z0-9_]+)\\s*(\\(.*\\))?$");
 
     private static final Map<String, String> SIMPLE_MAPPINGS = new HashMap<>();
 
@@ -62,6 +64,12 @@ public class FunctionEscapeHandler implements EscapeHandler {
 
             if ("USER".equals(name)) {
                 return "''";
+            }
+            if ("CONCAT".equals(name)) {
+                String funcArgs = m.group(2);
+                String[] args = EscapeParser.split(funcArgs.substring(1, funcArgs.length() - 1));
+
+                return Sqlite3.join(args, " || ");
             }
         }
 

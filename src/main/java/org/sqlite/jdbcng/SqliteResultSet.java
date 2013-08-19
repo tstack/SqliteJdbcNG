@@ -364,7 +364,30 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Object getObject(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        Sqlite3.DataType dt;
+
+        dt = Sqlite3.DataType.valueOf(Sqlite3.sqlite3_column_type(this.stmt, this.checkColumn(i)));
+        switch (dt) {
+            case SQLITE_NULL:
+                return null;
+            case SQLITE_FLOAT:
+                return this.getDouble(i);
+            case SQLITE_INTEGER: {
+                long bigint = Sqlite3.sqlite3_column_int64(this.stmt, this.checkColumn(i));
+
+                if (Integer.MIN_VALUE <= bigint && bigint <= Integer.MAX_VALUE) {
+                    return (int)bigint;
+                }
+
+                return bigint;
+            }
+            case SQLITE_TEXT:
+                return this.getString(i);
+            case SQLITE_BLOB:
+                return this.getBlob(i);
+            default:
+                throw new RuntimeException("Unhandled sqlite3 type" + dt);
+        }
     }
 
     @Override
@@ -1187,6 +1210,6 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getObject(this.findColumn(columnLabel), type);
     }
 }

@@ -33,7 +33,6 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 import org.sqlite.jdbcng.internal.ColumnData;
 import org.sqlite.jdbcng.internal.SQLKeywords;
 
-import java.io.IOException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -868,12 +867,20 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getColumnPrivileges(String s, String s2, String s3, String s4) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(
+                "SELECT NULL AS TABLE_CAT, NULL AS TABLE_SCHEM, NULL AS TABLE_NAME, " +
+                        "NULL AS COLUMN_NAME, NULL AS GRANTOR, NULL AS GRANTEE, " +
+                        "NULL AS PRIVILEGE, NULL AS IS_GRANTABLE LIMIT 0"
+        );
     }
 
     @Override
     public ResultSet getTablePrivileges(String s, String s2, String s3) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(
+                "SELECT NULL AS TABLE_CAT, NULL AS TABLE_SCHEM, NULL AS TABLE_NAME, " +
+                        "NULL AS GRANTOR, NULL AS GRANTEE, " +
+                        "NULL AS PRIVILEGE, NULL AS IS_GRANTABLE LIMIT 0"
+        );
     }
 
     @Override
@@ -1065,7 +1072,16 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getAttributes(String s, String s2, String s3, String s4) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(
+                "SELECT null as TYPE_CAT, NULL AS TYPE_SCHEM, NULL AS TYPE_NAME, " +
+                        "NULL AS ATTR_NAME, NULL AS DATA_TYPE, NULL AS ATTR_TYPE_NAME, " +
+                        "NULL AS ATTR_SIZE, NULL AS DECIMAL_DIGITS, NULL AS NUM_PREC_RADIX, " +
+                        "NULL AS NULLABLE, NULL AS REMARKS, NULL AS ATTR_DEF, " +
+                        "NULL AS SQL_DATA_TYPE, NULL AS SQL_DATETIME_SUB, " +
+                        "NULL AS CHAR_OCTET_LENGTH, NULL AS ORDINAL_POSITION, " +
+                        "NULL AS IS_NULLABLE, NULL AS SCOPE_CATALOG, NULL AS SCOPE_SCHEMA, " +
+                        "NULL AS SCOPE_TABLE, NULL AS SOURCE_DATA_TYPE LIMIT 0"
+        );
     }
 
     @Override
