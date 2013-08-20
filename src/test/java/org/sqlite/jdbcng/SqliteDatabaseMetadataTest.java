@@ -195,6 +195,17 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
             assertEquals(PK_DUMP_HEADER, this.formatResultSetHeader(rsm));
             assertArrayEquals(PK_DUMP, this.formatResultSet(rs));
         }
+
+        try (Statement stmt = this.conn.createStatement()) {
+            stmt.executeUpdate("CREATE TABLE nokey (foo TEXT, bar TEXT)");
+        }
+
+        try (ResultSet rs = this.dbMetadata.getPrimaryKeys(null, null, "nokey")) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(PK_DUMP_HEADER, this.formatResultSetHeader(rsm));
+            assertArrayEquals(new String[0], this.formatResultSet(rs));
+        }
     }
 
     private static final String CLIENT_INFO_HEADER =
@@ -232,6 +243,56 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
             while (rs.next()) {
                 assertEquals(TABLE_TYPE_DUMPS[rs.getRow() - 1], this.formatResultSetRow(rs));
             }
+        }
+    }
+
+    private static final String IMPORTED_KEY_HEADER =
+            "|PKTABLE_CAT|PKTABLE_SCHEM|PKTABLE_NAME|PKCOLUMN_NAME|FKTABLE_CAT|FKTABLE_SCHEM|" +
+                    "FKTABLE_NAME|FKCOLUMN_NAME|KEY_SEQ|UPDATE_RULE|DELETE_RULE|FK_NAME|PK_NAME|" +
+                    "DEFERRABILITY|";
+
+    private static final String[] IMPORTED_KEY_DUMP = {
+            "|main|null|artist|artistid|main|null|track|trackartist|1|3|3|null|null|6|",
+    };
+
+    @Test
+    public void testGetImportedKeys() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            stmt.executeUpdate(
+                    "CREATE TABLE artist(" +
+                            " artistid    INTEGER PRIMARY KEY, " +
+                            " artistname  TEXT " +
+                            ")"
+            );
+            stmt.executeUpdate(
+                    "CREATE TABLE track(" +
+                            "  trackid     INTEGER, " +
+                            "  trackname   TEXT, " +
+                            "  trackartist INTEGER," +
+                            "  FOREIGN KEY(trackartist) REFERENCES artist(artistid)" +
+                            ")"
+            );
+        }
+
+        try (ResultSet rs = this.dbMetadata.getImportedKeys("main", null, "track")) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(IMPORTED_KEY_HEADER, this.formatResultSetHeader(rsm));
+            assertArrayEquals(IMPORTED_KEY_DUMP, this.formatResultSet(rs));
+        }
+
+        try (ResultSet rs = this.dbMetadata.getImportedKeys("main", null, "artist")) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(IMPORTED_KEY_HEADER, this.formatResultSetHeader(rsm));
+            assertArrayEquals(new String[0], this.formatResultSet(rs));
+        }
+
+        try (ResultSet rs = this.dbMetadata.getExportedKeys("main", null, "artist")) {
+            ResultSetMetaData rsm = rs.getMetaData();
+
+            assertEquals(IMPORTED_KEY_HEADER, this.formatResultSetHeader(rsm));
+            assertArrayEquals(IMPORTED_KEY_DUMP, this.formatResultSet(rs));
         }
     }
 }

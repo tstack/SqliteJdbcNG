@@ -34,10 +34,7 @@ import org.sqlite.jdbcng.internal.ColumnData;
 import org.sqlite.jdbcng.internal.SQLKeywords;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class SqliteDatabaseMetadata implements DatabaseMetaData {
     private static final String KEYWORD_LIST;
@@ -777,6 +774,15 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                         "SELECT 'VIEW' as TABLE_TYPE");
     }
 
+    private static final String COLUMN_QUERY =
+            "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME, " +
+                    "? AS COLUMN_NAME, ? AS DATA_TYPE, ? AS TYPE_NAME, ? AS COLUMN_SIZE, " +
+                    "null AS BUFFER_LENGTH, ? AS DECIMAL_DIGITS, 10 AS NUM_PREC_RADIX, " +
+                    "? AS NULLABLE, '' AS REMARKS, ? AS COLUMN_DEF, null AS SQL_DATA_TYPE, " +
+                    "null AS SQL_DATETIME_SUB, ? AS ORDINAL_POSITION, ? AS IS_NULLABLE, " +
+                    "null AS SCOPE_CATALOG, null AS SCOPE_SCHEMA, null AS SCOPE_TABLE, " +
+                    "null AS SOURCE_DATA_TYPE, ? AS IS_AUTOINCREMENT, ? AS IS_GENERATEDCOLUMN ";
+
     @Override
     public ResultSet getColumns(String catalog,
                                 String schemaPattern,
@@ -825,20 +831,19 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             }
         }
 
-        String constantQuery = "";
+        String constantQuery = "", limit = "";
 
         for (int lpc = 0; lpc < columnList.size(); lpc++) {
             if (!constantQuery.isEmpty())
                 constantQuery += " UNION ALL ";
-            constantQuery += "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME, " +
-                    "? AS COLUMN_NAME, ? AS DATA_TYPE, ? AS TYPE_NAME, ? AS COLUMN_SIZE, " +
-                    "null AS BUFFER_LENGTH, ? AS DECIMAL_DIGITS, 10 AS NUM_PREC_RADIX, " +
-                    "? AS NULLABLE, '' AS REMARKS, ? AS COLUMN_DEF, null AS SQL_DATA_TYPE, " +
-                    "null AS SQL_DATETIME_SUB, ? AS ORDINAL_POSITION, ? AS IS_NULLABLE, " +
-                    "null AS SCOPE_CATALOG, null AS SCOPE_SCHEMA, null AS SCOPE_TABLE, " +
-                    "null AS SOURCE_DATA_TYPE, ? AS IS_AUTOINCREMENT, ? AS IS_GENERATEDCOLUMN ";
+            constantQuery += COLUMN_QUERY;
+        }
+        if (constantQuery.isEmpty()) {
+            constantQuery = COLUMN_QUERY;
+            limit = " LIMIT 0";
         }
         constantQuery += " ORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION";
+        constantQuery += limit;
 
         PreparedStatement ps = this.conn.prepareStatement(constantQuery);
 
@@ -893,10 +898,14 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
+    private static final String PRIMARY_KEY_QUERY =
+            "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME, ? AS COLUMN_NAME, " +
+                    "? AS KEY_SEQ, null AS PK_NAME ";
+
     @Override
     public ResultSet getPrimaryKeys(String catalog, String schema, String tableName) throws SQLException {
         List<ColumnData> columnList = new ArrayList<>();
-        String query;
+        String query, limit = "";
 
         try (Statement stmt = this.conn.createStatement()) {
             if (catalog != null)
@@ -920,10 +929,14 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         for (int lpc = 0; lpc < columnList.size(); lpc++) {
             if (!constantQuery.isEmpty())
                 constantQuery += " UNION ALL ";
-            constantQuery += "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME," +
-                    "? AS COLUMN_NAME, ? AS KEY_SEQ, null AS PK_NAME ";
+            constantQuery += PRIMARY_KEY_QUERY;
+        }
+        if (constantQuery.isEmpty()) {
+            constantQuery = PRIMARY_KEY_QUERY;
+            limit = " LIMIT 0";
         }
         constantQuery += " ORDER BY COLUMN_NAME";
+        constantQuery += limit;
 
         PreparedStatement ps = this.conn.prepareStatement(constantQuery);
 
@@ -941,19 +954,196 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         return ps.executeQuery();
     }
 
+    public static class ForeignKeyData {
+        private static final Map<String, Integer> ACTION_MAP = new HashMap<>();
+
+        static {
+            ACTION_MAP.put("SET NULL", DatabaseMetaData.importedKeySetNull);
+            ACTION_MAP.put("SET DEFAULT", DatabaseMetaData.importedKeySetDefault);
+            ACTION_MAP.put("CASCADE", DatabaseMetaData.importedKeyCascade);
+            ACTION_MAP.put("RESTRICT", DatabaseMetaData.importedKeyRestrict);
+            ACTION_MAP.put("NO ACTION", DatabaseMetaData.importedKeyNoAction);
+        }
+
+        private static final int actionStringToInt(String actionStr) {
+            Integer actionInt = ACTION_MAP.get(actionStr);
+
+            if (actionInt == null)
+                throw new RuntimeException("Unknown sqlite action string " + actionStr);
+
+            return actionInt;
+        }
+
+        public final int id;
+        public final int seq;
+        public final String fromTable;
+        public final String fromColumn;
+        public final String toTable;
+        public final String toColumn;
+        public final int onUpdate;
+        public final int onDelete;
+        public final String match;
+
+        public ForeignKeyData(String fromTable, ResultSet rs) throws SQLException {
+            this.fromTable = fromTable;
+            this.id = rs.getInt("id");
+            this.seq = rs.getInt("seq");
+            this.toTable = rs.getString("table");
+            this.fromColumn = rs.getString("from");
+            this.toColumn = rs.getString("to");
+            this.onUpdate = actionStringToInt(rs.getString("on_update"));
+            this.onDelete = actionStringToInt(rs.getString("on_delete"));
+            this.match = rs.getString("match");
+        }
+
+        public ForeignKeyData(String fromTable, String toTable) {
+            this.id = -1;
+            this.seq = 0;
+            this.fromTable = fromTable;
+            this.fromColumn = null;
+            this.toTable = toTable;
+            this.toColumn = null;
+            this.onUpdate = -1;
+            this.onDelete = -1;
+            this.match = null;
+        }
+    }
+
+    private Map<String, List<ForeignKeyData>> getForeignKeyData(String catalog) throws SQLException {
+        Map<String, List<ForeignKeyData>> table2Key = new HashMap<>();
+
+        try (Statement stmt = this.conn.createStatement()) {
+            List<String> allTables = new ArrayList<>();
+            String tableQuery;
+
+            /* XXX We need to iterate over all of the catalogs */
+            if (catalog != null) {
+                tableQuery = Sqlite3.mprintf(
+                    "SELECT name FROM %Q.sqlite_master WHERE type='table'", catalog);
+            }
+            else {
+                tableQuery = "SELECT name FROM sqlite_master WHERE type='table'";
+            }
+
+            try (ResultSet rs = stmt.executeQuery(tableQuery)) {
+                while (rs.next()) {
+                    allTables.add(rs.getString(1));
+                }
+            }
+
+            for (String catalogTable : allTables) {
+                try (ResultSet rs = stmt.executeQuery(Sqlite3.mprintf("PRAGMA %Q.foreign_key_list(%Q)",
+                        catalog, catalogTable))) {
+                    while (rs.next()) {
+                        ForeignKeyData fkd = new ForeignKeyData(catalogTable, rs);
+
+                        if (!table2Key.containsKey(fkd.fromTable))
+                            table2Key.put(fkd.fromTable, new ArrayList<ForeignKeyData>());
+                        if (!table2Key.containsKey(fkd.toTable))
+                            table2Key.put(fkd.toTable, new ArrayList<ForeignKeyData>());
+
+                        table2Key.get(fkd.fromTable).add(fkd);
+                        table2Key.get(fkd.toTable).add(fkd);
+                    }
+                }
+            }
+        }
+
+        return table2Key;
+    }
+
+    private static final String FOREIGN_KEY_QUERY = "SELECT ? AS PKTABLE_CAT, " +
+            "NULL AS PKTABLE_SCHEM, ? AS PKTABLE_NAME, " +
+            "? AS PKCOLUMN_NAME, ? AS FKTABLE_CAT, NULL AS FKTABLE_SCHEM, " +
+            "? AS FKTABLE_NAME, ? AS FKCOLUMN_NAME, ? AS KEY_SEQ, ? AS UPDATE_RULE, " +
+            "? AS DELETE_RULE, NULL AS FK_NAME, NULL AS PK_NAME, ? AS DEFERRABILITY ";
+
+    private ResultSet getForeignKeys(String catalog, String fromTable, String toTable) throws SQLException {
+        Map<String, List<ForeignKeyData>> table2Key = getForeignKeyData(catalog);
+        List<ForeignKeyData> columnList = new ArrayList<>();
+        String limit = "";
+
+        if (table2Key.containsKey(fromTable)) {
+            columnList.addAll(table2Key.get(fromTable));
+        }
+        if (table2Key.containsKey(toTable)) {
+            columnList.addAll(table2Key.get(toTable));
+        }
+
+        String constantQuery = "";
+
+        for (ForeignKeyData fkd : columnList) {
+            if (fromTable != null && !fromTable.equals(fkd.fromTable))
+                continue;
+            if (toTable != null && !toTable.equals(fkd.toTable))
+                continue;
+
+            if (!constantQuery.isEmpty())
+                constantQuery += " UNION ALL ";
+            constantQuery += FOREIGN_KEY_QUERY;
+        }
+        if (constantQuery.isEmpty()) {
+            constantQuery = FOREIGN_KEY_QUERY;
+            limit = " LIMIT 0";
+        }
+        constantQuery += " ORDER BY PKTABLE_CAT, PKTABLE_SCHEM, PKTABLE_NAME, KEY_SEQ";
+        constantQuery += limit;
+
+        PreparedStatement ps = this.conn.prepareStatement(constantQuery);
+
+        ps.closeOnCompletion();
+
+        int index = 1;
+
+        for (ForeignKeyData fkd : columnList) {
+            if (fromTable != null && !fromTable.equals(fkd.fromTable))
+                continue;
+            if (toTable != null && !toTable.equals(fkd.toTable))
+                continue;
+
+            ps.setString(index++, catalog);
+            ps.setString(index++, fkd.toTable);
+            ps.setString(index++, fkd.toColumn);
+            ps.setString(index++, catalog);
+            ps.setString(index++, fkd.fromTable);
+            ps.setString(index++, fkd.fromColumn);
+            ps.setInt(index++, fkd.seq + 1);
+            ps.setInt(index++, fkd.onUpdate);
+            ps.setInt(index++, fkd.onDelete);
+            ps.setInt(index++, importedKeyInitiallyImmediate); // XXX
+        }
+
+        return ps.executeQuery();
+    }
+
+    /**
+     * The DEFERRABILITY is always set to the value of 'importedKeyInitiallyImmediate'
+     * since there is no way to tell at run time whether it is set to immediate or
+     * deferred.
+     *
+     * {@inheritDoc}
+     */
     @Override
-    public ResultSet getImportedKeys(String s, String s2, String s3) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public ResultSet getImportedKeys(String catalog, String schema, String table) throws SQLException {
+        return this.getForeignKeys(catalog, table, null);
     }
 
     @Override
-    public ResultSet getExportedKeys(String s, String s2, String s3) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public ResultSet getExportedKeys(String catalog, String schema, String table) throws SQLException {
+        return this.getForeignKeys(catalog, null, table);
     }
 
     @Override
-    public ResultSet getCrossReference(String s, String s2, String s3, String s4, String s5, String s6) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public ResultSet getCrossReference(String parentCatalog,
+                                       String parentSchema,
+                                       String parentTable,
+                                       String foreignCatalog,
+                                       String foreignSchema,
+                                       String foreignTable) throws SQLException {
+        if (parentCatalog != foreignCatalog)
+            throw new SQLNonTransientException("Catalog names must be the same");
+
+        return this.getForeignKeys(parentCatalog, foreignTable, parentTable);
     }
 
     @Override
