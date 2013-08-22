@@ -35,6 +35,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
 
 import static org.junit.Assert.*;
 
@@ -167,6 +171,45 @@ public class SqliteResultSetTest extends SqliteTestHelper {
                 }
                 catch (SQLDataException e) {
                     
+                }
+
+                assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testGetTimestamp() throws Exception {
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+
+        df.setCalendar(new GregorianCalendar(TimeZone.getTimeZone("UTC")));
+
+        try (PreparedStatement ps = this.conn.prepareStatement(
+                "INSERT INTO type_table (name, birthdate) VALUES (?, ?)")) {
+            ps.setString(1, "d1");
+            ps.setString(2, "2011-10-12 15:00:00");
+            ps.executeUpdate();
+            ps.setString(1, "d2");
+            ps.setString(2, "2011-10-12T15:00:00.123");
+            ps.executeUpdate();
+        }
+
+        try (Statement stmt = this.conn.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery("SELECT * FROM type_table")) {
+                assertTrue(rs.next());
+                assertEquals("2011-10-12 15:00:00.000", df.format(rs.getTimestamp("birthdate")));
+                assertTrue(rs.next());
+                assertEquals("2011-10-12 15:00:00.123", df.format(rs.getTimestamp(2)));
+
+                assertNull(rs.getTimestamp(3));
+                assertTrue(rs.wasNull());
+
+                try {
+                    rs.getTimestamp(1);
+                    fail("able to read an invalid time?");
+                }
+                catch (SQLDataException e) {
+
                 }
 
                 assertFalse(rs.next());

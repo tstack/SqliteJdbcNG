@@ -34,17 +34,20 @@ import org.sqlite.jdbcng.bridj.Sqlite3;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.sql.Types;
 
 public class SqliteParameterMetadata implements ParameterMetaData {
     private final SqlitePreparedStatement parent;
     private final Pointer<Sqlite3.Statement> stmt;
     private final int parameterCount;
+    private final int precision;
 
     public SqliteParameterMetadata(SqlitePreparedStatement parent, Pointer<Sqlite3.Statement> stmt) {
         this.parent = parent;
         this.stmt = stmt;
         this.parameterCount = Sqlite3.sqlite3_bind_parameter_count(this.stmt);
+        this.precision = Sqlite3.sqlite3_limit(this.parent.conn.getHandle(), Sqlite3.Limit.SQLITE_LIMIT_LENGTH.value(), -1);
     }
 
     @Override
@@ -64,12 +67,12 @@ public class SqliteParameterMetadata implements ParameterMetaData {
 
     @Override
     public int getPrecision(int param) throws SQLException {
-        return Sqlite3.sqlite3_limit(this.parent.conn.getHandle(), Sqlite3.Limit.SQLITE_LIMIT_LENGTH.value(), -1);
+        return this.precision;
     }
 
     @Override
     public int getScale(int param) throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return 0;
     }
 
     @Override
@@ -94,11 +97,11 @@ public class SqliteParameterMetadata implements ParameterMetaData {
 
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        throw new SQLNonTransientException("No object implements the given class");
     }
 
     @Override
     public boolean isWrapperFor(Class<?> iface) throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 }

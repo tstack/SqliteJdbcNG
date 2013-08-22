@@ -41,7 +41,6 @@ import java.util.logging.Logger;
 public class SqliteCommon {
     private static final Logger LOGGER = Logger.getLogger(SqliteCommon.class.getName());
 
-    // SimpleDateFormat is not thread-safe, so give one to each thread
     protected static final ThreadLocal<Calendar> DEFAULT_CALENDAR = new ThreadLocal<Calendar>() {
         @Override
         protected Calendar initialValue()

@@ -50,8 +50,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SqliteResultSet extends SqliteCommon implements ResultSet {
-    private static final Pattern TIME_PATTERN = Pattern.compile(
-            "(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.(\\d{3}))?)?");
+    private static final String TIME_PATTERN_STRING = "(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.(\\d{3}))?)?";
+    private static final Pattern TIME_PATTERN = Pattern.compile(TIME_PATTERN_STRING);
+
+    private static final Pattern TS_PATTERN = Pattern.compile(
+            "(\\d{4})-(\\d{2})-(\\d{2})[T ]" + TIME_PATTERN_STRING);
 
     final SqliteStatement parent;
     private final Pointer<Sqlite3.Statement> stmt;
@@ -249,7 +252,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Timestamp getTimestamp(int i) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getTimestamp(i, null);
     }
 
     @Override
@@ -900,12 +903,39 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Timestamp getTimestamp(int i, Calendar calendar) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        String optval, value = this.getString(i);
+
+        if (value == null)
+            return null;
+
+        Calendar cal = DEFAULT_CALENDAR.get();
+        Matcher m = TS_PATTERN.matcher(value);
+
+        if (!m.matches()) {
+            throw new SQLDataException("Bad timestamp value -- " + value);
+        }
+
+        cal.clear();
+        cal.set(Calendar.YEAR, Integer.valueOf(m.group(1)));
+        cal.set(Calendar.MONTH, Integer.valueOf(m.group(2)) - 1);
+        cal.set(Calendar.DAY_OF_MONTH, Integer.valueOf(m.group(3)));
+        cal.set(Calendar.HOUR, Integer.valueOf(m.group(4)));
+        cal.set(Calendar.MINUTE, Integer.valueOf(m.group(5)));
+        optval = m.group(6);
+        if (optval != null) {
+            cal.set(Calendar.SECOND, Integer.valueOf(optval));
+            optval = m.group(7);
+            if (optval != null) {
+                cal.set(Calendar.MILLISECOND, Integer.valueOf(optval));
+            }
+        }
+
+        return new Timestamp(cal.getTimeInMillis());
     }
 
     @Override
     public Timestamp getTimestamp(String s, Calendar calendar) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.getTimestamp(this.findColumn(s), calendar);
     }
 
     @Override

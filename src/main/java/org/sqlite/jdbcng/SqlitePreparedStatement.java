@@ -453,6 +453,11 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public ResultSetMetaData getMetaData() throws SQLException {
+        requireOpened();
+
+        if (this.lastResult == null)
+            return null;
+
         return this.lastResult.getMetaData();
     }
 
