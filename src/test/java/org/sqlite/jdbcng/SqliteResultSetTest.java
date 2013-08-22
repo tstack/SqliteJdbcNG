@@ -31,6 +31,8 @@ package org.sqlite.jdbcng;
 
 import org.junit.Test;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.sql.*;
 
@@ -254,6 +256,65 @@ public class SqliteResultSetTest extends SqliteTestHelper {
                 assertTrue(rs.wasNull());
 
                 assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testUpdate() throws Throwable {
+        try (Statement stmt = this.conn.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery("SELECT * FROM test_table")) {
+                Class cl = ResultSet.class;
+                Method[] methods = cl.getMethods();
+
+                for (Method meth : methods) {
+                    if (!meth.getName().startsWith("update")) {
+                        continue;
+                    }
+
+                    Class[] paramTypes = meth.getParameterTypes();
+                    Object[] args = new Object[paramTypes.length];
+
+                    for (int lpc = 0; lpc < args.length; lpc++) {
+                        if (paramTypes[lpc] == int.class) {
+                            args[lpc] = 0;
+                        }
+                        else if (paramTypes[lpc] == byte.class) {
+                            args[lpc] = (byte)0;
+                        }
+                        else if (paramTypes[lpc] == boolean.class) {
+                            args[lpc] = false;
+                        }
+                        else if (paramTypes[lpc] == char.class) {
+                            args[lpc] = '\0';
+                        }
+                        else if (paramTypes[lpc] == long.class) {
+                            args[lpc] = 0L;
+                        }
+                        else if (paramTypes[lpc] == short.class) {
+                            args[lpc] = (short)0;
+                        }
+                        else if (paramTypes[lpc] == float.class) {
+                            args[lpc] = 0.0f;
+                        }
+                        else if (paramTypes[lpc] == double.class) {
+                            args[lpc] = 0.0;
+                        }
+                    }
+
+                    try {
+                        meth.invoke(rs, args);
+                        fail("update should throw a 'feature not supported' exception");
+                    }
+                    catch (InvocationTargetException e) {
+                        try {
+                            throw e.getTargetException();
+                        }
+                        catch (SQLFeatureNotSupportedException e2) {
+
+                        }
+                    }
+                }
             }
         }
     }
