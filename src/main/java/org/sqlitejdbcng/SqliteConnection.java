@@ -505,7 +505,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                 Pointer.pointerToCString(this.nativeSQL(s)), -1, stmt_out, Pointer.NULL),
                 this.db);
 
-        return new SqlitePreparedStatement(this, stmt_out.get());
+        return new SqlitePreparedStatement(this, stmt_out.get(), s);
     }
 
     @Override

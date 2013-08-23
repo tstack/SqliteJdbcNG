@@ -100,7 +100,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
         Pointer<Sqlite3.Statement> stmt = stmt_out.get();
 
-        if (Sqlite3.sqlite3_stmt_readonly(stmt) == 0) {
+        if (Sqlite3.stmt_readonly(stmt) == 0) {
             Sqlite3.sqlite3_finalize(stmt);
             throw new SQLNonTransientException("SQL statement is not a query");
         }
@@ -243,7 +243,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         Pointer<Sqlite3.Statement> stmt = stmt_out.get();
 
         try {
-            if (Sqlite3.sqlite3_stmt_readonly(stmt) != 0) {
+            if (Sqlite3.stmt_readonly(stmt, s) != 0) {
                 this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
                 stmt = null;
             }

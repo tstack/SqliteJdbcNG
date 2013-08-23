@@ -30,18 +30,14 @@
 package org.sqlitejdbcng;
 
 import org.junit.Test;
-import org.sqlitejdbcng.SqliteBlob;
-import org.sqlitejdbcng.SqliteDriver;
 
 import java.io.InputStream;
 import java.sql.*;
 import java.util.Arrays;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
-public class SqliteBlobTest {
+public class SqliteBlobTest extends SqliteTestHelper {
     private final byte[] TEST_BYTES = "Hello, World!\n".getBytes();
 
     @Test
@@ -84,33 +80,34 @@ public class SqliteBlobTest {
 
     @Test
     public void testBlobInQueries() throws Exception {
-        SqliteDriver driver = new SqliteDriver();
-        Connection conn = driver.connect("jdbc:sqlite:", null);
-        Statement stmt = conn.createStatement();
+        try (Statement stmt = conn.createStatement()) {
 
-        stmt.executeUpdate("CREATE TABLE IF NOT EXISTS blob_test (b1 BLOB)");
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS blob_test (b1 BLOB)");
 
-        PreparedStatement ps = conn.prepareStatement("INSERT INTO blob_test VALUES (?)");
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO blob_test VALUES (?)")) {
 
-        Blob blob = conn.createBlob();
+                Blob blob = conn.createBlob();
 
-        blob.setBytes(1, TEST_BYTES);
-        ps.setBlob(1, blob);
-        ps.executeUpdate();
+                blob.setBytes(1, TEST_BYTES);
+                ps.setBlob(1, blob);
+                ps.executeUpdate();
 
-        ResultSet rs = stmt.executeQuery("SELECT * FROM blob_test");
+                try (ResultSet rs = stmt.executeQuery("SELECT * FROM blob_test")) {
 
-        rs.next();
-        blob = rs.getBlob(1);
-        assertEquals(TEST_BYTES.length, blob.length());
-        assertArrayEquals(TEST_BYTES, blob.getBytes(1, 1024));
+                    rs.next();
+                    blob = rs.getBlob(1);
+                    assertEquals(TEST_BYTES.length, blob.length());
+                    assertArrayEquals(TEST_BYTES, blob.getBytes(1, 1024));
 
-        rs.next();
-        try {
-            blob.length();
-            fail("length() should fail after blob was freed by next()");
-        }
-        catch (SQLException e) {
+                    rs.next();
+                    try {
+                        blob.length();
+                        fail("length() should fail after blob was freed by next()");
+                    }
+                    catch (SQLException e) {
+                    }
+                }
+            }
         }
     }
 }

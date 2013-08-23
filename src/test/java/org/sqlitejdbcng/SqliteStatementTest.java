@@ -30,11 +30,13 @@
 package org.sqlitejdbcng;
 
 import org.junit.Test;
+import org.sqlitejdbcng.bridj.Sqlite3;
 
 import java.sql.*;
 import java.util.logging.Logger;
 
 import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 public class SqliteStatementTest extends SqliteTestHelper {
     private static final String[] BATCH_ATTACH_RESULT = {
@@ -264,6 +266,8 @@ public class SqliteStatementTest extends SqliteTestHelper {
 
     @Test(expected = SQLNonTransientException.class)
     public void testExecuteNonQuery() throws Exception {
+        assumeTrue(Sqlite3.HAVE_STMT_READONLY);
+
         try (Statement stmt = this.conn.createStatement()) {
             stmt.executeQuery("INSERT INTO test_table VALUES (2, 'testing')");
         }

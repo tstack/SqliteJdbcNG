@@ -44,6 +44,7 @@ import java.util.logging.Logger;
 public class Sqlite3 {
 
     public static final boolean SQLITE_ENABLE_COLUMN_METADATA;
+    public static boolean HAVE_STMT_READONLY = true;
 
     private static final Logger LOGGER = Logger.getLogger(Sqlite3.class.getName());
 
@@ -225,6 +226,38 @@ public class Sqlite3 {
     public static native int sqlite3_step(Pointer<Statement> stmt);
 
     public static native int sqlite3_stmt_readonly(Pointer<Statement> stmt);
+
+    public static int stmt_readonly(Pointer<Statement> stmt) {
+        if (!HAVE_STMT_READONLY)
+            return -1;
+
+        try {
+            return sqlite3_stmt_readonly(stmt);
+        }
+        catch (UnsatisfiedLinkError e) {
+            HAVE_STMT_READONLY = false;
+            return -1;
+        }
+    }
+
+    public static int stmt_readonly(Pointer<Statement> stmt, String s) {
+        int ro = stmt_readonly(stmt);
+
+        switch (ro) {
+            case -1: {
+                String upper = s.toUpperCase();
+
+                if (upper.startsWith("SELECT") ||
+                        upper.startsWith("ATTACH") ||
+                        (upper.startsWith("PRAGMA") && !upper.contains("="))) {
+                    return 1;
+                }
+                return 0;
+            }
+            default:
+                return ro;
+        }
+    }
 
     public static native int sqlite3_reset(Pointer<Statement> stmt);
     public static native int sqlite3_finalize(Pointer<Statement> stmt);

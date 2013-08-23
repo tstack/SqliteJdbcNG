@@ -33,8 +33,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
-import org.sqlitejdbcng.SqliteConnection;
-import org.sqlitejdbcng.SqliteDriver;
 
 import java.io.File;
 import java.sql.*;
@@ -59,11 +57,11 @@ public class SqliteTestHelper {
         this.dbMetadata = this.conn.getMetaData();
         this.sqliteConnection = (SqliteConnection)this.conn;
         try (Statement stmt = this.conn.createStatement()) {
-            stmt.execute("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
-            stmt.execute("INSERT INTO test_table VALUES (1, 'test')");
+            stmt.executeUpdate("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
+            stmt.executeUpdate("INSERT INTO test_table VALUES (1, 'test')");
 
-            stmt.execute("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL(10,2))");
-            stmt.execute("CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)");
+            stmt.executeUpdate("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL(10,2))");
+            stmt.executeUpdate("CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)");
         }
     }
 

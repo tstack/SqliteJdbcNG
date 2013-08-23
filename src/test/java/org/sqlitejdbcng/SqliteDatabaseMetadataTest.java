@@ -79,6 +79,7 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
 
         for (Object[] pair : getMethodResults()) {
             Method method = cl.getMethod((String)pair[0]);
+            System.out.println("testing " + method.getName());
             Object result = method.invoke(dmd);
 
             assertEquals("Test of -- " + pair[0], pair[1], result);

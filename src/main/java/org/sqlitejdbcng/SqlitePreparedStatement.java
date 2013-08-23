@@ -57,11 +57,12 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     private final int[] paramTypes;
     private final List<Pair<Object[], int[]>> batchParamList = new ArrayList<>();
 
-    public SqlitePreparedStatement(SqliteConnection conn, Pointer<Sqlite3.Statement> stmt)
+    public SqlitePreparedStatement(SqliteConnection conn, Pointer<Sqlite3.Statement> stmt, String query)
             throws SQLException {
         super(conn);
 
         this.stmt = stmt;
+        this.lastQuery = query;
         this.paramCount = Sqlite3.sqlite3_bind_parameter_count(stmt);
         this.paramValues = new Object[this.paramCount];
         this.paramTypes = new int[this.paramCount];
@@ -214,7 +215,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
         this.clearWarnings();
 
-        if (Sqlite3.sqlite3_stmt_readonly(this.stmt) == 0) {
+        if (Sqlite3.stmt_readonly(this.stmt, this.lastQuery) == 0) {
             throw new SQLNonTransientException("SQL statement is not a query, use executeUpdate()");
         }
 
@@ -387,7 +388,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         this.clearWarnings();
 
         this.bindParameters(this.paramValues, this.paramTypes);
-        if (Sqlite3.sqlite3_stmt_readonly(this.stmt) != 0) {
+        if (Sqlite3.stmt_readonly(this.stmt, this.lastQuery) != 0) {
             this.replaceResultSet(new SqliteResultSet(this, this.stmt, this.maxRows));
         }
         else {
