@@ -35,6 +35,16 @@ The following are the main goals and priorities for this project:
  used from SQL queries.  These features are nice, however, the above goals should always come first.
 
 
+Supported Versions
+------------------
+
+The driver is shooting to support the following spec/software versions:
+
+* JDBC 4.1
+* SQLite 3.7.X (Most of the tests pass with 3.6.22, but supporting pre-3.7
+  versions is not a priority.)
+* Java 7
+
 
 Existing Drivers
 ----------------
