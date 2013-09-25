@@ -110,6 +110,12 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                         Sqlite3.OpenFlag.SQLITE_OPEN_URI.intValue(),
                 null);
 
+        try {
+            Sqlite3.sqlite3_enable_load_extension(db_out.get(), 1);
+        }
+        catch (UnsatisfiedLinkError e) {
+            LOGGER.warning("sqlite3_enable_load_extension function is not available");
+        }
         this.url = url;
         this.db = Sqlite3.withDbReleaser(db_out.get());
         this.properties = properties;

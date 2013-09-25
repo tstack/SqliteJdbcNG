@@ -164,6 +164,8 @@ public class Sqlite3 {
     public static native Pointer<Byte> sqlite3_mprintf(Pointer<Byte> fmt, Object... varargs);
     public static native void sqlite3_free(Pointer<Byte> mem);
 
+    public static native int sqlite3_enable_load_extension(Pointer<Sqlite3Db> db, int onoff);
+
     public static native int sqlite3_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_total_changes(Pointer<Sqlite3Db> db);
     public static native int sqlite3_open(Pointer<Byte> filename, Pointer<Pointer<Sqlite3Db>> db);
