@@ -216,8 +216,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             throw new SQLNonTransientException("SQL statement is not a query, use executeUpdate()");
         }
 
-        this.replaceResultSet(new SqliteResultSet(this, this.stmt, this.maxRows));
         this.bindParameters(this.paramValues, this.paramTypes);
+        this.replaceResultSet(new SqliteResultSet(this, this.stmt, this.maxRows));
 
         return this.lastResult;
     }
