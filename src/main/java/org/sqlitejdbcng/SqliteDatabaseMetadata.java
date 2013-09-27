@@ -905,7 +905,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         String query, limit = "";
 
         try (Statement stmt = this.conn.createStatement()) {
-            if (catalog != null)
+            if (catalog != null && !catalog.isEmpty())
                 query = Sqlite3.mprintf("PRAGMA %Q.table_info(%Q)", catalog, tableName);
             else
                 query = Sqlite3.mprintf("PRAGMA table_info(%Q)", tableName);
@@ -1014,7 +1014,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             String tableQuery;
 
             /* XXX We need to iterate over all of the catalogs */
-            if (catalog != null) {
+            if (catalog != null && !catalog.isEmpty()) {
                 tableQuery = Sqlite3.mprintf(
                     "SELECT name FROM %Q.sqlite_master WHERE type='table'", catalog);
             }
@@ -1029,8 +1029,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             }
 
             for (String catalogTable : allTables) {
-                try (ResultSet rs = stmt.executeQuery(Sqlite3.mprintf("PRAGMA %Q.foreign_key_list(%Q)",
+                if (!stmt.execute(Sqlite3.mprintf("PRAGMA %Q.foreign_key_list(%Q)",
                         catalog, catalogTable))) {
+                    continue;
+                }
+
+                try (ResultSet rs = stmt.getResultSet()) {
                     while (rs.next()) {
                         ForeignKeyData fkd = new ForeignKeyData(catalogTable, rs);
 

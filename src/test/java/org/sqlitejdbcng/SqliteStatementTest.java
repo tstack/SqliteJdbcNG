@@ -49,7 +49,7 @@ public class SqliteStatementTest extends SqliteTestHelper {
             stmt.addBatch("SELECT * FROM test_table");
             stmt.addBatch("INSERT INTO test_table VALUES (3, 'testing again')");
 
-            assertArrayEquals(new int[]{1, Statement.SUCCESS_NO_INFO, Statement.SUCCESS_NO_INFO, 1},
+            assertArrayEquals(new int[]{1, 0, Statement.SUCCESS_NO_INFO, 1},
                     stmt.executeBatch());
 
             assertArrayEquals(BATCH_ATTACH_RESULT,

@@ -75,10 +75,24 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     void replaceResultSet(SqliteResultSet rs) throws SQLException {
         if (this.lastResult != null) {
             this.lastResult.close();
+            this.lastResult = null;
+        }
+        if (rs != null) {
+            this.lastUpdateCount = -1;
+
+            // Perform an initial sqlite3_step() here so that the statement is
+            // actually executed.  This behavior is expected when using sqlite
+            // extensions that provide functions with side-effects that don't
+            // return anything in a result set.
+            try {
+                rs.step();
+            }
+            catch (SQLException e) {
+                rs.close();
+                throw e;
+            }
         }
         this.lastResult = rs;
-        if (rs != null)
-            this.lastUpdateCount = -1;
     }
 
     @Override
@@ -97,7 +111,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
 
         Pointer<Sqlite3.Statement> stmt = stmt_out.get();
 
-        if (Sqlite3.stmt_readonly(stmt) == 0) {
+        if (Sqlite3.sqlite3_column_count(stmt) == 0) {
             Sqlite3.sqlite3_finalize(stmt);
             throw new SQLNonTransientException("SQL statement is not a query");
         }
@@ -240,9 +254,13 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         Pointer<Sqlite3.Statement> stmt = stmt_out.get();
 
         try {
-            if (Sqlite3.stmt_readonly(stmt, s) != 0) {
-                this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
-                stmt = null;
+            if (Sqlite3.sqlite3_column_count(stmt) != 0) {
+                try {
+                    this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
+                }
+                finally {
+                    stmt = null;
+                }
             }
             else {
                 int rc;

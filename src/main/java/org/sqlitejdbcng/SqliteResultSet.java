@@ -63,7 +63,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private int rowNumber = 0;
     private int lastColumn;
     private final TimeoutProgressCallback timeoutCallback;
-    private int rc;
+    private int lastStepResult;
 
     public SqliteResultSet(SqliteStatement parent, Pointer<Sqlite3.Statement> stmt, int maxRows) throws SQLException {
         this.parent = parent;
@@ -71,7 +71,6 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         this.columnCount = Sqlite3.sqlite3_column_count(this.stmt);
         this.maxRows = maxRows;
         this.timeoutCallback = new TimeoutProgressCallback(this.parent.conn);
-        this.rc = step();
     }
 
     public Pointer<Sqlite3.Statement> getHandle() {
@@ -85,6 +84,28 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     private void updateNotSupported() throws SQLException {
         throw new SQLFeatureNotSupportedException("SQLite does not support result set updates");
+    }
+
+    void step() throws SQLException {
+        try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
+                this.parent.getQueryTimeout() * 1000)) {
+            int rc = Sqlite3.sqlite3_step(this.stmt);
+
+            if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
+                throw new SQLTimeoutException("Query timeout reached");
+            }
+
+            switch (Sqlite3.ReturnCodes.valueOf(rc)) {
+                case SQLITE_ROW:
+                case SQLITE_DONE:
+                    break;
+                default:
+                    Sqlite3.checkOk(rc, this.parent.getDbHandle(), true);
+                    break;
+            }
+
+            this.lastStepResult = rc;
+        }
     }
 
     @Override
@@ -104,17 +125,16 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         this.blobList.clear();
 
         if (this.maxRows == 0 || this.rowNumber < this.maxRows) {
-            if(rowNumber > 0) {
-                rc = step();
+            if (this.rowNumber > 0) {
+                step();
             }
             this.rowNumber += 1;
-            switch (Sqlite3.ReturnCodes.valueOf(rc)) {
+            switch (Sqlite3.ReturnCodes.valueOf(this.lastStepResult)) {
                 case SQLITE_ROW:
                     return true;
                 case SQLITE_DONE:
                     return false;
                 default:
-                    Sqlite3.checkOk(rc, this.parent.getDbHandle());
                     return false;
             }
         }
@@ -123,25 +143,13 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         }
     }
 
-    private int step() throws SQLTimeoutException, SQLException {
-        int rc;
-        try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
-                this.parent.getQueryTimeout() * 1000)) {
-            rc = Sqlite3.sqlite3_step(this.stmt);
-            if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
-                throw new SQLTimeoutException("Query timeout reached");
-            }
-        }
-        return rc;
-    }
-
     @Override
     public synchronized void close() throws SQLException {
         if (!this.closed) {
             this.closed = true;
 
             if (this.rowNumber > 0 && this.stmt.get() != null) {
-                Sqlite3.checkOk(Sqlite3.sqlite3_reset(this.stmt), this.parent.getDbHandle());
+                Sqlite3.sqlite3_reset(this.stmt);
                 this.rowNumber = 0;
             }
             if (!(this.parent instanceof SqlitePreparedStatement)) {

@@ -651,7 +651,7 @@ public class Sqlite3 {
         }
     }
 
-    public static void checkOk(int rc, Pointer<Sqlite3Db> db) throws SQLException {
+    public static void checkOk(int rc, Pointer<Sqlite3Db> db, boolean exec) throws SQLException {
         ReturnCodes rcEnum = ReturnCodes.valueOf(rc);
 
         switch (rcEnum){
@@ -671,7 +671,10 @@ public class Sqlite3 {
 
                 switch (rcEnum) {
                     case SQLITE_ERROR:
-                        throw new SQLSyntaxErrorException(msg, "", rc);
+                        if (exec)
+                            throw new SQLTransientException(msg, "", rc);
+                        else
+                            throw new SQLSyntaxErrorException(msg, "", rc);
                     case SQLITE_AUTH:
                     case SQLITE_CORRUPT:
                         throw new SQLNonTransientException(msg, "", rc);
@@ -693,6 +696,10 @@ public class Sqlite3 {
                 }
             }
         }
+    }
+
+    public static void checkOk(int rc, Pointer<Sqlite3Db> db) throws SQLException {
+        checkOk(rc, db, false);
     }
 
     public static void checkOk(int rc) throws SQLException {

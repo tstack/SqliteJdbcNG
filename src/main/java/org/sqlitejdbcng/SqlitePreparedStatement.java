@@ -177,7 +177,6 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         for (Pair pair : batchCopy) {
             try {
                 this.clearWarnings();
-                this.replaceResultSet(new SqliteResultSet(this, this.stmt, this.maxRows));
                 this.bindParameters((Object[])pair.getFirst(), (int[])pair.getSecond());
                 this.executeUpdate();
                 retval[index] = this.lastUpdateCount;
@@ -212,7 +211,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
         this.clearWarnings();
 
-        if (Sqlite3.stmt_readonly(this.stmt, this.lastQuery) == 0) {
+        if (Sqlite3.sqlite3_column_count(this.stmt) == 0) {
             throw new SQLNonTransientException("SQL statement is not a query, use executeUpdate()");
         }
 
@@ -385,7 +384,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         this.clearWarnings();
 
         this.bindParameters(this.paramValues, this.paramTypes);
-        if (Sqlite3.stmt_readonly(this.stmt, this.lastQuery) != 0) {
+        if (Sqlite3.sqlite3_column_count(this.stmt) != 0) {
             this.replaceResultSet(new SqliteResultSet(this, this.stmt, this.maxRows));
         }
         else {

@@ -32,6 +32,7 @@ import org.junit.Test;
 
 import java.sql.*;
 
+import static junit.framework.Assert.assertNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -48,6 +49,39 @@ public class BasicQueriesTest {
     public void closeConnection() throws SQLException {
         this.conn.close();
         this.conn = null;
+    }
+
+    @Test(expected = SQLTransientException.class)
+    public void testImmediateExecute() throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            try {
+                stmt.execute("select load_extension('non-existent-extension')");
+            }
+            finally {
+                assertNull(stmt.getResultSet());
+                assertEquals(-1, stmt.getUpdateCount());
+            }
+        }
+    }
+
+    @Test(expected = SQLTransientException.class)
+    public void testImmediateExecuteQuery() throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            try {
+                stmt.executeQuery("select load_extension('non-existent-extension')");
+            }
+            finally {
+                assertNull(stmt.getResultSet());
+                assertEquals(-1, stmt.getUpdateCount());
+            }
+        }
+    }
+
+    @Test
+    public void testImmediateExecuteQuery2() throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeQuery("select 1");
+        }
     }
 
     @Test
