@@ -789,7 +789,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         String query;
 
         /* XXX We should iterate over the catalogs instead of just defaulting to "main" */
-        if (catalog == null)
+        if (catalog == null || catalog.isEmpty())
             catalog = "main";
 
         if (tableNamePattern == null)

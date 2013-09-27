@@ -63,13 +63,15 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private int rowNumber = 0;
     private int lastColumn;
     private final TimeoutProgressCallback timeoutCallback;
+    private int rc;
 
-    public SqliteResultSet(SqliteStatement parent, Pointer<Sqlite3.Statement> stmt, int maxRows) {
+    public SqliteResultSet(SqliteStatement parent, Pointer<Sqlite3.Statement> stmt, int maxRows) throws SQLException {
         this.parent = parent;
         this.stmt = stmt;
         this.columnCount = Sqlite3.sqlite3_column_count(this.stmt);
         this.maxRows = maxRows;
         this.timeoutCallback = new TimeoutProgressCallback(this.parent.conn);
+        this.rc = step();
     }
 
     public Pointer<Sqlite3.Statement> getHandle() {
@@ -87,8 +89,6 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public synchronized boolean next() throws SQLException {
-        int rc;
-
         requireOpen();
         this.clearWarnings();
 
@@ -104,12 +104,8 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         this.blobList.clear();
 
         if (this.maxRows == 0 || this.rowNumber < this.maxRows) {
-            try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
-                    this.parent.getQueryTimeout() * 1000)) {
-                rc = Sqlite3.sqlite3_step(this.stmt);
-                if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
-                    throw new SQLTimeoutException("Query timeout reached");
-                }
+            if(rowNumber > 0) {
+                rc = step();
             }
             this.rowNumber += 1;
             switch (Sqlite3.ReturnCodes.valueOf(rc)) {
@@ -125,6 +121,18 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         else {
             return false;
         }
+    }
+
+    private int step() throws SQLTimeoutException, SQLException {
+        int rc;
+        try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
+                this.parent.getQueryTimeout() * 1000)) {
+            rc = Sqlite3.sqlite3_step(this.stmt);
+            if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
+                throw new SQLTimeoutException("Query timeout reached");
+            }
+        }
+        return rc;
     }
 
     @Override
