@@ -28,6 +28,7 @@ package org.sqlitejdbcng;
 
 import org.bridj.Pointer;
 import org.sqlitejdbcng.bridj.Sqlite3;
+import org.sqlitejdbcng.bridj.Sqlite3.DataType;
 import org.sqlitejdbcng.internal.TimeoutProgressCallback;
 
 import java.io.InputStream;
@@ -57,6 +58,9 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private final Pointer<Sqlite3.Statement> stmt;
     private final int maxRows;
     private final int columnCount;
+    /* used to lookup the results in case the full resultset metadata is not available */
+    private String[] columnNames; 
+    private DataType[] columnTypes;
     private final List<WeakReference<Blob>> blobList = new ArrayList<>();
     private SqliteResultSetMetadata metadata;
     private boolean closed;
@@ -380,9 +384,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Object getObject(int i) throws SQLException {
-        Sqlite3.DataType dt;
-
-        dt = Sqlite3.DataType.valueOf(Sqlite3.sqlite3_column_type(this.stmt, this.checkColumn(i)));
+        Sqlite3.DataType dt = getColumnType(i);
         switch (dt) {
             case SQLITE_NULL:
                 return null;
@@ -406,6 +408,19 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         }
     }
 
+    private DataType getColumnType(int i) throws SQLException {
+        if(this.columnTypes == null) {
+            this.columnTypes = new DataType[this.columnCount];
+        }
+        DataType result = columnTypes[i];
+        if(result == null) {
+            result = Sqlite3.DataType.valueOf(Sqlite3.sqlite3_column_type(this.stmt, this.checkColumn(i)));
+            columnTypes[i] = result;
+        }
+        
+        return result;
+    }
+
     @Override
     public Object getObject(String s) throws SQLException {
         return this.getObject(this.findColumn(s));
@@ -413,7 +428,24 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public int findColumn(String s) throws SQLException {
-        return ((SqliteResultSetMetadata)this.getMetaData()).findColumn(s);
+        if(this.metadata != null) {
+            return this.metadata.findColumn(s);
+        } else {
+            requireOpen();
+            if(this.columnNames == null) {
+                this.columnNames = new String[columnCount];
+                for(int i = 0; i < this.columnCount; i++) {
+                    Pointer<Byte> namePtr = Sqlite3.sqlite3_column_name(stmt, i);
+                    this.columnNames[i] = namePtr.getCString();
+                }
+            }
+            for (int lpc = 0; lpc < this.columnNames.length; lpc++) {
+                if (this.columnNames[lpc].equals(s)) {
+                    return lpc + 1;
+                }
+            }
+            throw new SQLNonTransientException("Result set does not contain label -- " + s);
+        }
     }
 
     @Override
