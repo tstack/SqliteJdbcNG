@@ -48,6 +48,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     private static final Integer INTEGER_ONE = 1;
 
     private final Pointer<Sqlite3.Statement> stmt;
+    private final SqliteResultSetMetadata resultSetMetadata;
     private ParameterMetaData metadata;
     private final int paramCount;
     private final Object[] paramValues;
@@ -59,6 +60,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         super(conn);
 
         this.stmt = stmt;
+        this.resultSetMetadata = new SqliteResultSetMetadata(this.stmt);
         this.lastQuery = query;
         this.paramCount = Sqlite3.sqlite3_bind_parameter_count(stmt);
         this.paramValues = new Object[this.paramCount];
@@ -216,7 +218,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         }
 
         this.bindParameters(this.paramValues, this.paramTypes);
-        this.replaceResultSet(new SqliteResultSet(this, this.stmt, this.maxRows));
+        this.replaceResultSet(new SqliteResultSet(this, this.resultSetMetadata, this.stmt, this.maxRows));
 
         return this.lastResult;
     }
@@ -385,7 +387,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
         this.bindParameters(this.paramValues, this.paramTypes);
         if (Sqlite3.sqlite3_column_count(this.stmt) != 0) {
-            this.replaceResultSet(new SqliteResultSet(this, this.stmt, this.maxRows));
+            this.replaceResultSet(new SqliteResultSet(this, this.resultSetMetadata, this.stmt, this.maxRows));
         }
         else {
             int rc;

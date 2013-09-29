@@ -58,23 +58,21 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private final int maxRows;
     private final int columnCount;
     private final List<WeakReference<Blob>> blobList = new ArrayList<>();
-    private SqliteResultSetMetadata metadata;
+    private final SqliteResultSetMetadata metadata;
     private boolean closed;
     private int rowNumber = 0;
     private int lastColumn;
     private final TimeoutProgressCallback timeoutCallback;
     private int lastStepResult;
 
-    public SqliteResultSet(SqliteStatement parent, Pointer<Sqlite3.Statement> stmt, int maxRows) throws SQLException {
+    public SqliteResultSet(SqliteStatement parent, SqliteResultSetMetadata metadata, Pointer<Sqlite3.Statement> stmt, int maxRows) throws SQLException {
         this.parent = parent;
+        this.metadata = metadata;
+        this.metadata.setResultSet(this);
         this.stmt = stmt;
         this.columnCount = Sqlite3.sqlite3_column_count(this.stmt);
         this.maxRows = maxRows;
         this.timeoutCallback = new TimeoutProgressCallback(this.parent.conn);
-    }
-
-    public Pointer<Sqlite3.Statement> getHandle() {
-        return this.stmt;
     }
 
     private void requireOpen() throws SQLException {
@@ -372,9 +370,6 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     public synchronized ResultSetMetaData getMetaData() throws SQLException {
         requireOpen();
 
-        if (this.metadata == null)
-            this.metadata = new SqliteResultSetMetadata(this);
-
         return this.metadata;
     }
 
@@ -413,7 +408,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public int findColumn(String s) throws SQLException {
-        return ((SqliteResultSetMetadata)this.getMetaData()).findColumn(s);
+        return this.metadata.findColumn(s);
     }
 
     @Override

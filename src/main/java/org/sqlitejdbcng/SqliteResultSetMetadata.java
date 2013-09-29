@@ -35,50 +35,66 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 
 public class SqliteResultSetMetadata implements ResultSetMetaData {
-    private final SqliteResultSet rs;
+    private final Pointer<Sqlite3.Statement> stmt;
     private final int columnCount;
     private final ColumnData[] columnList;
     private final String[] columnLabels;
+    private SqliteResultSet rs;
 
-    public SqliteResultSetMetadata(SqliteResultSet rs) {
-        int notNull = columnNullableUnknown;
-        int primaryKey = 0;
-        boolean autoInc = false;
-
-        this.rs = rs;
-        this.columnCount = Sqlite3.sqlite3_column_count(rs.getHandle());
+    public SqliteResultSetMetadata(Pointer<Sqlite3.Statement> stmt) {
+        this.stmt = stmt;
+        this.columnCount = Sqlite3.sqlite3_column_count(stmt);
         this.columnLabels = new String[this.columnCount];
         this.columnList = new ColumnData[this.columnCount];
 
         for (int lpc = 0; lpc < this.columnCount; lpc++) {
-            Pointer<Byte> ptr = Sqlite3.sqlite3_column_name(rs.getHandle(), lpc);
-            String type;
+            Pointer<Byte> ptr = Sqlite3.sqlite3_column_name(stmt, lpc);
 
             if (ptr == null)
                 throw new OutOfMemoryError();
             this.columnLabels[lpc] = ptr.getCString();
+        }
 
-            ptr = Sqlite3.sqlite3_column_decltype(rs.getHandle(), lpc);
-            if (ptr == null) {
-                Sqlite3.DataType dt;
-                int exprType;
+    }
 
-                exprType = Sqlite3.sqlite3_column_type(rs.getHandle(), lpc);
-                dt = Sqlite3.DataType.valueOf(exprType);
-                type = dt.getSqlType();
-            }
-            else {
-                type = ptr.getCString();
-            }
+    void setResultSet(SqliteResultSet rs) {
+        this.rs = rs;
+    }
 
-            String dbName = "", tableName = "", columnName = "";
+    private int checkColumnIndex(int inIndex) throws SQLException {
+        int retval = this.rs.checkColumnIndex(inIndex);
 
-            try {
-                if ((ptr = Sqlite3.sqlite3_column_database_name(rs.getHandle(), lpc)) != null)
-                    dbName = ptr.getCString();
-                if ((ptr = Sqlite3.sqlite3_column_table_name(rs.getHandle(), lpc)) != null)
-                    tableName = ptr.getCString();
-                if ((ptr = Sqlite3.sqlite3_column_origin_name(rs.getHandle(), lpc)) != null)
+        if (this.columnList[retval] != null) {
+            return retval;
+        }
+
+        int notNull = columnNullableUnknown;
+        Pointer<Byte> ptr;
+        int primaryKey = 0;
+        boolean autoInc = false;
+        String type;
+
+        ptr = Sqlite3.sqlite3_column_decltype(stmt, retval);
+        if (ptr == null) {
+            Sqlite3.DataType dt;
+            int exprType;
+
+            exprType = Sqlite3.sqlite3_column_type(stmt, retval);
+            dt = Sqlite3.DataType.valueOf(exprType);
+            type = dt.getSqlType();
+        }
+        else {
+            type = ptr.getCString();
+        }
+
+        String dbName = "", tableName = "", columnName = "";
+
+        try {
+            if ((ptr = Sqlite3.sqlite3_column_database_name(stmt, retval)) != null)
+                dbName = ptr.getCString();
+            if ((ptr = Sqlite3.sqlite3_column_table_name(stmt, retval)) != null)
+                tableName = ptr.getCString();
+                if ((ptr = Sqlite3.sqlite3_column_origin_name(stmt, retval)) != null)
                     columnName = ptr.getCString();
                 if (!dbName.isEmpty()) {
                     Pointer<Pointer<Byte>> dataType = Pointer.allocatePointer(Byte.class);
@@ -100,22 +116,23 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
                     notNull = notNullInt.getInt() != 0 ? columnNoNulls : columnNullable;
 
                 }
-            }
-            catch (UnsatisfiedLinkError e) {
-            }
-
-            this.columnList[lpc] = new ColumnData(
-                    this.rs.parent.getDbHandle(),
-                    dbName,
-                    tableName,
-                    columnName,
-                    -1,
-                    "",
-                    type,
-                    notNull,
-                    primaryKey,
-                    autoInc);
         }
+        catch (UnsatisfiedLinkError e) {
+        }
+
+        this.columnList[retval] = new ColumnData(
+                this.rs.parent.getDbHandle(),
+                dbName,
+                tableName,
+                columnName,
+                -1,
+                "",
+                type,
+                notNull,
+                primaryKey,
+                autoInc);
+
+        return retval;
     }
 
     int findColumn(String label) throws SQLException {
@@ -184,32 +201,32 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
 
     @Override
     public int getPrecision(int i) throws SQLException {
-        return this.columnList[this.rs.checkColumnIndex(i)].precision;
+        return this.columnList[this.checkColumnIndex(i)].precision;
     }
 
     @Override
     public int getScale(int i) throws SQLException {
-        return this.columnList[this.rs.checkColumnIndex(i)].scale;
+        return this.columnList[this.checkColumnIndex(i)].scale;
     }
 
     @Override
     public String getTableName(int i) throws SQLException {
-        return this.columnList[this.rs.checkColumnIndex(i)].tableName;
+        return this.columnList[this.checkColumnIndex(i)].tableName;
     }
 
     @Override
     public String getCatalogName(int i) throws SQLException {
-        return this.columnList[this.rs.checkColumnIndex(i)].dbName;
+        return this.columnList[this.checkColumnIndex(i)].dbName;
     }
 
     @Override
     public int getColumnType(int i) throws SQLException {
-        return this.columnList[this.rs.checkColumnIndex(i)].sqlType;
+        return this.columnList[this.checkColumnIndex(i)].sqlType;
     }
 
     @Override
     public String getColumnTypeName(int i) throws SQLException {
-        return this.columnList[this.rs.checkColumnIndex(i)].type;
+        return this.columnList[this.checkColumnIndex(i)].type;
     }
 
     @Override

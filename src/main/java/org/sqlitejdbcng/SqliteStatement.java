@@ -116,7 +116,9 @@ public class SqliteStatement extends SqliteCommon implements Statement {
             throw new SQLNonTransientException("SQL statement is not a query");
         }
 
-        this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
+        SqliteResultSetMetadata metadata = new SqliteResultSetMetadata(stmt);
+
+        this.replaceResultSet(new SqliteResultSet(this, metadata, stmt, this.maxRows));
 
         return this.lastResult;
     }
@@ -256,7 +258,9 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         try {
             if (Sqlite3.sqlite3_column_count(stmt) != 0) {
                 try {
-                    this.replaceResultSet(new SqliteResultSet(this, stmt, this.maxRows));
+                    SqliteResultSetMetadata metadata = new SqliteResultSetMetadata(stmt);
+
+                    this.replaceResultSet(new SqliteResultSet(this, metadata, stmt, this.maxRows));
                 }
                 finally {
                     stmt = null;
