@@ -68,6 +68,8 @@ public class SqliteTestHelper {
             this.conn.close();
         this.conn = null;
         this.sqliteConnection = null;
+        this.dbFile.delete();
+        this.dbFile = null;
     }
 
     protected String formatResultSetHeader(ResultSetMetaData rsm) throws SQLException {
