@@ -26,12 +26,27 @@
 
 package org.sqlitejdbcng;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.RowIdLifetime;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLNonTransientException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.sqlitejdbcng.bridj.Sqlite3;
 import org.sqlitejdbcng.internal.ColumnData;
 import org.sqlitejdbcng.internal.SQLKeywords;
-
-import java.sql.*;
-import java.util.*;
 
 public class SqliteDatabaseMetadata implements DatabaseMetaData {
     private static final String KEYWORD_LIST;
@@ -1149,7 +1164,54 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getTypeInfo() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        Map<String, Integer> TYPE_MAP = new LinkedHashMap<String, Integer>();
+        TYPE_MAP.put("NULL", Types.NULL);
+        TYPE_MAP.put("INTEGER", Types.INTEGER);
+        TYPE_MAP.put("REAL", Types.REAL);
+        TYPE_MAP.put("TEXT", Types.VARCHAR);
+        TYPE_MAP.put("BLOB", Types.BLOB);
+        
+        /**
+         * Each type description has the following columns:
+            TYPE_NAME String => Type name
+            DATA_TYPE int => SQL data type from java.sql.Types
+            PRECISION int => maximum precision
+            LITERAL_PREFIX String => prefix used to quote a literal (may be null)
+            LITERAL_SUFFIX String => suffix used to quote a literal (may be null)
+            CREATE_PARAMS String => parameters used in creating the type (may be null)
+            NULLABLE short => can you use NULL for this type.
+            typeNoNulls - does not allow NULL values
+            typeNullable - allows NULL values
+            typeNullableUnknown - nullability unknown
+            CASE_SENSITIVE boolean=> is it case sensitive.
+            SEARCHABLE short => can you use "WHERE" based on this type:
+            typePredNone - No support
+            typePredChar - Only supported with WHERE .. LIKE
+            typePredBasic - Supported except for WHERE .. LIKE
+            typeSearchable - Supported for all WHERE ..
+            UNSIGNED_ATTRIBUTE boolean => is it unsigned.
+            FIXED_PREC_SCALE boolean => can it be a money value.
+            AUTO_INCREMENT boolean => can it be used for an auto-increment value.
+            LOCAL_TYPE_NAME String => localized version of type name (may be null)
+            MINIMUM_SCALE short => minimum scale supported
+            MAXIMUM_SCALE short => maximum scale supported
+            SQL_DATA_TYPE int => unused
+            SQL_DATETIME_SUB int => unused
+            NUM_PREC_RADIX int => usually 2 or 10
+         */
+        StringBuilder sb = new StringBuilder();
+        String union = "\nUNION\n";
+        for (Map.Entry<String, Integer> entry : TYPE_MAP.entrySet()) {
+            sb.append("SELECT '").append(entry.getKey()).append("' AS TYPE_NAME, ").append(entry.getValue()).append(" AS DATA_TYPE,");
+            sb.append("0 AS PRECISION, null as LITERAL_PREFIX, null as LITERAL_SUFFIX, null as CREATE_PARAMS, "); 
+            sb.append("'typeNullable' as NULLABLE, 1 as CASE_SENSITIVE, 'typeSearchable' as SEARCHABLE, ");
+            sb.append("0 as UNSIGNED_ATTRIBUTE, 0 as FIXED_PREC_SCALE, 0 as AUTO_INCREMENT, null as LOCAL_TYPE_NAME, ");
+            sb.append("0 as MINIMUM_SCALE, 0 as MAXIMUM_SCALE,");
+            sb.append("0 as SQL_DATA_TYPE, 0 as SQL_DATETIME_SUB, 10 as NUM_PREC_RADIX");
+            sb.append(union);
+        }
+        String sql = sb.substring(0, sb.length() - union.length());
+        return executeConstantQuery(sql);
     }
 
     @Override

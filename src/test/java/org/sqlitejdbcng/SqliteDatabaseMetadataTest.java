@@ -33,6 +33,9 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
+import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.Assert.*;
 
@@ -292,5 +295,25 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
             assertEquals(IMPORTED_KEY_HEADER, this.formatResultSetHeader(rsm));
             assertArrayEquals(IMPORTED_KEY_DUMP, this.formatResultSet(rs));
         }
+    }
+    
+    @Test
+    public void testTypeInfo() throws Exception {
+        ResultSet rs = this.dbMetadata.getTypeInfo();
+        formatResultSet(rs);
+        Map<String, Integer> infos = new HashMap<String, Integer>();
+        while(rs.next()) {
+            String name = rs.getString("TYPE_NAME");
+            Integer type = rs.getInt("DATA_TYPE");
+            infos.put(name, type);
+        }
+        rs.close();
+        
+        assertEquals(5, infos.size());
+        assertEquals((Integer) Types.NULL, infos.get("NULL"));
+        assertEquals((Integer) Types.BLOB, infos.get("BLOB"));
+        assertEquals((Integer) Types.REAL, infos.get("REAL"));
+        assertEquals((Integer) Types.INTEGER, infos.get("INTEGER"));
+        assertEquals((Integer) Types.VARCHAR, infos.get("TEXT"));
     }
 }
