@@ -48,12 +48,17 @@ public class BasicBenchmarkTest extends SqliteTestHelper {
 
     @Test
     public void testFillTable() throws Exception {
+        String name = "small string value";
+
+        this.conn.setAutoCommit(false);
         try (PreparedStatement ps = this.conn.prepareStatement("INSERT INTO test_table VALUES (?, ?)")) {
-            for (int lpc = 0; lpc < 100000; lpc++) {
+            for (int lpc = 0; lpc < 10000; lpc++) {
                 ps.setInt(1, 100 + lpc);
-                ps.setString(2, Integer.toString(lpc));
+                ps.setString(2, name);
+                ps.executeUpdate();
             }
         }
+        this.conn.commit();
     }
 
     @Test
