@@ -599,16 +599,17 @@ public class Sqlite3 {
         SQLITE_BLOB(4, "BLOB"),
         SQLITE_NULL(5, "NULL");
 
-        private static final HashMap<Integer, DataType> VALUE_TO_ENUM = new HashMap<>();
-
-        static {
-            for (DataType dt : values()) {
-                VALUE_TO_ENUM.put(dt.value, dt);
-            }
-        }
+        private static final DataType[] VALUE_TO_ENUM = {
+                null,
+                SQLITE_INTEGER,
+                SQLITE_FLOAT,
+                SQLITE_TEXT,
+                SQLITE_BLOB,
+                SQLITE_NULL,
+        };
 
         public static DataType valueOf(int value) {
-            return VALUE_TO_ENUM.get(value);
+            return VALUE_TO_ENUM[value];
         }
 
         private final int value;
