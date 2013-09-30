@@ -109,34 +109,33 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                     break;
                 case Types.VARCHAR: {
                     String str = (String) values[lpc];
-                    Pointer<Byte> ptr = Pointer.pointerToCString(str);
-                    Sqlite3.BufferDestructorBase destructor = new Sqlite3.BufferDestructor(ptr);
+                    byte[] bits = str.getBytes();
+                    Pointer<Byte> ptr = Sqlite3.sqlite3_malloc(bits.length);
 
-                    BridJ.protectFromGC(destructor);
+                    ptr.setBytes(bits);
                     rc = Sqlite3.sqlite3_bind_text(
                             this.stmt,
                             lpc + 1,
                             ptr,
-                            ((int)ptr.getValidBytes()) - 1,
-                            Pointer.pointerTo(destructor));
+                            bits.length,
+                            Sqlite3.FREE_DESTRUCTOR);
                     break;
                 }
                 case Types.VARBINARY: {
                     byte[] bytes = (byte[]) values[lpc];
-                    Pointer<Byte> ptr = Pointer.pointerToBytes(bytes);
-                    Sqlite3.BufferDestructorBase destructor = new Sqlite3.BufferDestructor(ptr);
+                    Pointer<Byte> ptr = Sqlite3.sqlite3_malloc(bytes.length);
 
-                    BridJ.protectFromGC(destructor);
                     rc = Sqlite3.sqlite3_bind_blob(
                             this.stmt,
                             lpc + 1,
                             ptr,
                             bytes.length,
-                            Pointer.pointerTo(destructor));
+                            Sqlite3.FREE_DESTRUCTOR);
                     break;
                 }
                 case Types.BLOB: {
                     SqliteBlob sb = (SqliteBlob)values[lpc];
+                    // TODO: remove this use of the buffer destructor
                     Sqlite3.BufferDestructorBase destructor = new Sqlite3.BufferDestructor(sb.getHandle());
 
                     BridJ.protectFromGC(destructor);

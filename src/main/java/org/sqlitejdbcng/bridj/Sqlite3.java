@@ -115,9 +115,32 @@ public class Sqlite3 {
 
     private static final DbReleaser DB_RELEASER = new DbReleaser();
 
+    public static class FreeReleaser implements Pointer.Releaser {
+
+        @Override
+        public void release(Pointer<?> voidMem) {
+            Pointer<Byte> mem = voidMem.as(Byte.class);
+
+            sqlite3_free(mem);
+        }
+    }
+
+    private static final FreeReleaser FREE_RELEASER = new FreeReleaser();
+
     public static abstract class BufferDestructorBase extends Callback<BufferDestructorBase> {
         public abstract void apply(Pointer<Void> mem);
     }
+
+    public static class FreeDestructor extends BufferDestructorBase {
+        @Override
+        public void apply(Pointer< Void > mem) {
+            sqlite3_free(mem.as(Byte.class));
+        }
+    }
+
+    private static final FreeDestructor FREE_DESTRUCTOR_OBJ = new FreeDestructor();
+    public static final Pointer<BufferDestructorBase> FREE_DESTRUCTOR =
+            Pointer.pointerTo(FREE_DESTRUCTOR_OBJ).as(BufferDestructorBase.class);
 
     public static class BufferDestructor extends BufferDestructorBase {
         private final Pointer<Byte> buffer;
@@ -159,6 +182,7 @@ public class Sqlite3 {
     public static native int sqlite3_config(int option, Object... varargs);
 
     public static native Pointer<Byte> sqlite3_mprintf(Pointer<Byte> fmt, Object... varargs);
+    public static native Pointer<Byte> sqlite3_malloc(int size);
     public static native void sqlite3_free(Pointer<Byte> mem);
 
     public static native int sqlite3_enable_load_extension(Pointer<Sqlite3Db> db, int onoff);
@@ -298,6 +322,19 @@ public class Sqlite3 {
         }
         catch (Throwable e) {
             DB_RELEASER.release(db);
+            throw e;
+        }
+    }
+
+    public static Pointer<Byte> withFreeReleaser(Pointer<Byte> mem) {
+        try {
+            if (mem == null)
+                return null;
+
+            return Pointer.pointerToAddress(mem.getPeer(), Byte.class, FREE_RELEASER);
+        }
+        catch (Throwable e) {
+            FREE_RELEASER.release(mem);
             throw e;
         }
     }
