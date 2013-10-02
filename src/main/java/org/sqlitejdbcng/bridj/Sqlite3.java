@@ -30,6 +30,7 @@ import org.bridj.*;
 import org.bridj.ann.Library;
 import org.bridj.ann.Optional;
 
+import java.io.IOException;
 import java.sql.*;
 import java.util.Collections;
 import java.util.HashMap;
@@ -72,6 +73,19 @@ public class Sqlite3 {
             result = false;
         }
         SQLITE_ENABLE_COLUMN_METADATA = result;
+
+        Pointer<?> ptr = null;
+
+        try {
+            ptr = BridJ.getNativeLibrary("sqlite3").getSymbolPointer("sqlite3_free");
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Unable to get sqlite3_free?", e);
+        }
+
+        if (ptr != null)
+            SQLITE_FREE = ptr.as(BufferDestructorBase.class);
+        else
+            SQLITE_FREE = null;
     }
 
     public static class NoopReleaser implements Pointer.Releaser {
@@ -130,17 +144,6 @@ public class Sqlite3 {
     public static abstract class BufferDestructorBase extends Callback<BufferDestructorBase> {
         public abstract void apply(Pointer<Void> mem);
     }
-
-    public static class FreeDestructor extends BufferDestructorBase {
-        @Override
-        public void apply(Pointer< Void > mem) {
-            sqlite3_free(mem.as(Byte.class));
-        }
-    }
-
-    private static final FreeDestructor FREE_DESTRUCTOR_OBJ = new FreeDestructor();
-    public static final Pointer<BufferDestructorBase> FREE_DESTRUCTOR =
-            Pointer.pointerTo(FREE_DESTRUCTOR_OBJ).as(BufferDestructorBase.class);
 
     public static class BufferDestructor extends BufferDestructorBase {
         private final Pointer<Byte> buffer;
@@ -312,6 +315,7 @@ public class Sqlite3 {
 
     public static final Pointer<BufferDestructorBase> SQLITE_STATIC = null;
     public static final Pointer<BufferDestructorBase> SQLITE_TRANSIENT = constantFunctionValue(-1);
+    public static final Pointer<BufferDestructorBase> SQLITE_FREE;
 
     public static Pointer<Sqlite3Db> withDbReleaser(Pointer<Sqlite3Db> db) {
         try {

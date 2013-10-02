@@ -118,7 +118,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                             lpc + 1,
                             ptr,
                             bits.length,
-                            Sqlite3.FREE_DESTRUCTOR);
+                            Sqlite3.SQLITE_FREE);
                     break;
                 }
                 case Types.VARBINARY: {
@@ -130,7 +130,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                             lpc + 1,
                             ptr,
                             bytes.length,
-                            Sqlite3.FREE_DESTRUCTOR);
+                            Sqlite3.SQLITE_FREE);
                     break;
                 }
                 case Types.BLOB: {
