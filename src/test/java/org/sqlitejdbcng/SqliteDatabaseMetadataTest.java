@@ -33,9 +33,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
-import java.sql.Types;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.junit.Assert.*;
 
@@ -296,24 +293,19 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
             assertArrayEquals(IMPORTED_KEY_DUMP, this.formatResultSet(rs));
         }
     }
+
+    private static final String[] TYPE_INFO_DUMP = {
+            "|NULL|0|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
+            "|INTEGER|4|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
+            "|REAL|7|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
+            "|TEXT|12|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
+            "|BLOB|2004|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
+    };
     
     @Test
     public void testTypeInfo() throws Exception {
-        ResultSet rs = this.dbMetadata.getTypeInfo();
-        formatResultSet(rs);
-        Map<String, Integer> infos = new HashMap<String, Integer>();
-        while(rs.next()) {
-            String name = rs.getString("TYPE_NAME");
-            Integer type = rs.getInt("DATA_TYPE");
-            infos.put(name, type);
+        try (ResultSet rs = this.dbMetadata.getTypeInfo()) {
+            assertArrayEquals(TYPE_INFO_DUMP, formatResultSet(rs));
         }
-        rs.close();
-        
-        assertEquals(5, infos.size());
-        assertEquals((Integer) Types.NULL, infos.get("NULL"));
-        assertEquals((Integer) Types.BLOB, infos.get("BLOB"));
-        assertEquals((Integer) Types.REAL, infos.get("REAL"));
-        assertEquals((Integer) Types.INTEGER, infos.get("INTEGER"));
-        assertEquals((Integer) Types.VARCHAR, infos.get("TEXT"));
     }
 }

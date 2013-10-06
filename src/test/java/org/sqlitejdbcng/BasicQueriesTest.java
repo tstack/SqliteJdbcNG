@@ -29,12 +29,14 @@ package org.sqlitejdbcng;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.sqlitejdbcng.bridj.Sqlite3;
 
 import java.sql.*;
 
 import static junit.framework.Assert.assertNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 public class BasicQueriesTest {
     private final SqliteDriver driver = new SqliteDriver();
@@ -53,6 +55,8 @@ public class BasicQueriesTest {
 
     @Test(expected = SQLTransientException.class)
     public void testImmediateExecute() throws Exception {
+        assumeTrue(Sqlite3.HAVE_LOAD_EXTENSION);
+
         try (Statement stmt = conn.createStatement()) {
             try {
                 stmt.execute("select load_extension('non-existent-extension')");
@@ -66,9 +70,24 @@ public class BasicQueriesTest {
 
     @Test(expected = SQLTransientException.class)
     public void testImmediateExecuteQuery() throws Exception {
+        assumeTrue(Sqlite3.HAVE_LOAD_EXTENSION);
+
         try (Statement stmt = conn.createStatement()) {
             try {
                 stmt.executeQuery("select load_extension('non-existent-extension')");
+            }
+            finally {
+                assertNull(stmt.getResultSet());
+                assertEquals(-1, stmt.getUpdateCount());
+            }
+        }
+    }
+
+    @Test(expected = SQLSyntaxErrorException.class)
+    public void testBadFunction() throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            try {
+                stmt.execute("select bad_function_name('foo')");
             }
             finally {
                 assertNull(stmt.getResultSet());

@@ -26,27 +26,12 @@
 
 package org.sqlitejdbcng;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.RowIdLifetime;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLNonTransientException;
-import java.sql.Statement;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.sqlitejdbcng.bridj.Sqlite3;
 import org.sqlitejdbcng.internal.ColumnData;
 import org.sqlitejdbcng.internal.SQLKeywords;
+
+import java.sql.*;
+import java.util.*;
 
 public class SqliteDatabaseMetadata implements DatabaseMetaData {
     private static final String KEYWORD_LIST;
@@ -1202,15 +1187,19 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         StringBuilder sb = new StringBuilder();
         String union = "\nUNION\n";
         for (Map.Entry<String, Integer> entry : TYPE_MAP.entrySet()) {
+            if (sb.length() > 0) {
+                sb.append(union);
+            }
+
             sb.append("SELECT '").append(entry.getKey()).append("' AS TYPE_NAME, ").append(entry.getValue()).append(" AS DATA_TYPE,");
             sb.append("0 AS PRECISION, null as LITERAL_PREFIX, null as LITERAL_SUFFIX, null as CREATE_PARAMS, "); 
             sb.append("'typeNullable' as NULLABLE, 1 as CASE_SENSITIVE, 'typeSearchable' as SEARCHABLE, ");
             sb.append("0 as UNSIGNED_ATTRIBUTE, 0 as FIXED_PREC_SCALE, 0 as AUTO_INCREMENT, null as LOCAL_TYPE_NAME, ");
             sb.append("0 as MINIMUM_SCALE, 0 as MAXIMUM_SCALE,");
             sb.append("0 as SQL_DATA_TYPE, 0 as SQL_DATETIME_SUB, 10 as NUM_PREC_RADIX");
-            sb.append(union);
         }
-        String sql = sb.substring(0, sb.length() - union.length());
+        sb.append(" ORDER BY DATA_TYPE");
+        String sql = sb.toString();
         return executeConstantQuery(sql);
     }
 

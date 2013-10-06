@@ -43,6 +43,7 @@ public class Sqlite3 {
 
     public static final boolean SQLITE_ENABLE_COLUMN_METADATA;
     public static boolean HAVE_STMT_READONLY = true;
+    public static final boolean HAVE_LOAD_EXTENSION;
 
     private static final Logger LOGGER = Logger.getLogger(Sqlite3.class.getName());
 
@@ -74,18 +75,23 @@ public class Sqlite3 {
         }
         SQLITE_ENABLE_COLUMN_METADATA = result;
 
-        Pointer<?> ptr = null;
+        Pointer<?> freePtr = null, loadPtr = null;
 
         try {
-            ptr = BridJ.getNativeLibrary("sqlite3").getSymbolPointer("sqlite3_free");
+            NativeLibrary sqliteLibrary = BridJ.getNativeLibrary("sqlite3");
+
+            freePtr = sqliteLibrary.getSymbolPointer("sqlite3_free");
+            loadPtr = sqliteLibrary.getSymbolPointer("sqlite3_enable_load_extension");
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Unable to get sqlite3_free?", e);
         }
 
-        if (ptr != null)
-            SQLITE_FREE = ptr.as(BufferDestructorBase.class);
+        if (freePtr != null)
+            SQLITE_FREE = freePtr.as(BufferDestructorBase.class);
         else
             SQLITE_FREE = null;
+
+        HAVE_LOAD_EXTENSION = (loadPtr != null);
     }
 
     public static class NoopReleaser implements Pointer.Releaser {

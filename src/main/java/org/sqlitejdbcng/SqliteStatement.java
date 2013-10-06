@@ -249,6 +249,8 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         String escapedString = this.escapeStatements ? this.conn.nativeSQL(s) : s;
 
         this.lastQuery = s;
+        this.lastUpdateCount = -1;
+        this.replaceResultSet(null);
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
                 Pointer.pointerToCString(escapedString), -1, stmt_out, Pointer.NULL),
                 this.conn.getHandle());
