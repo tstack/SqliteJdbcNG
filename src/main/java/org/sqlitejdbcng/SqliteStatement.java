@@ -283,7 +283,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                      */
                     int initialChanges = Sqlite3.sqlite3_total_changes(this.conn.getHandle());
 
-                    rc = Sqlite3.sqlite3_step(stmt);
+                    rc = Sqlite3.sqlite3_step(stmt.getPeer());
                     changeDiff = Sqlite3.sqlite3_total_changes(this.conn.getHandle()) - initialChanges;
                     if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
                         throw new SQLTimeoutException("Query timeout reached");
