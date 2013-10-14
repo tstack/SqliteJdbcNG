@@ -87,7 +87,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     void step() throws SQLException {
         try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
                 this.parent.getQueryTimeout() * 1000)) {
-            int rc = Sqlite3.sqlite3_step(this.stmt);
+            int rc = Sqlite3.sqlite3_step(stmt.getPeer());
 
             if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
                 throw new SQLTimeoutException("Query timeout reached");
@@ -182,15 +182,21 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public boolean wasNull() throws SQLException {
-        return (Sqlite3.sqlite3_column_type(this.stmt, checkColumn(this.lastColumn)) ==
+        return (Sqlite3.sqlite3_column_type(this.stmt.getPeer(), checkColumn(this.lastColumn)) ==
                 Sqlite3.DataType.SQLITE_NULL.value());
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public String getString(int i) throws SQLException {
-        Pointer<Byte> str = Sqlite3.sqlite3_column_text(stmt, checkColumn(i));
-
-        return str != null ? str.getCString() : null;
+        long ptr = Sqlite3.sqlite3_column_text(stmt.getPeer(), checkColumn(i));
+        if(ptr != 0) {
+            Pointer<String> str = Pointer.pointerToAddress(ptr, String.class);
+            if(str != null) {
+                return str.getCString();
+            } 
+        } 
+        return null;
     }
 
     @Override
@@ -210,22 +216,22 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public int getInt(int i) throws SQLException {
-        return Sqlite3.sqlite3_column_int(this.stmt, checkColumn(i));
+        return Sqlite3.sqlite3_column_int(this.stmt.getPeer(), checkColumn(i));
     }
 
     @Override
     public long getLong(int i) throws SQLException {
-        return Sqlite3.sqlite3_column_int64(this.stmt, checkColumn(i));
+        return Sqlite3.sqlite3_column_int64(this.stmt.getPeer(), checkColumn(i));
     }
 
     @Override
     public float getFloat(int i) throws SQLException {
-        return (float)Sqlite3.sqlite3_column_double(this.stmt, checkColumn(i));
+        return (float)Sqlite3.sqlite3_column_double(this.stmt.getPeer(), checkColumn(i));
     }
 
     @Override
     public double getDouble(int i) throws SQLException {
-        return Sqlite3.sqlite3_column_double(this.stmt, checkColumn(i));
+        return Sqlite3.sqlite3_column_double(this.stmt.getPeer(), checkColumn(i));
     }
 
     @Override
@@ -236,8 +242,9 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     @Override
     public byte[] getBytes(int i) throws SQLException {
         int zcol = checkColumn(i);
-        Pointer<Byte> blob = Sqlite3.sqlite3_column_blob(this.stmt, zcol);
-        int blobLen = Sqlite3.sqlite3_column_bytes(this.stmt, zcol);
+        long ptr = Sqlite3.sqlite3_column_blob(this.stmt.getPeer(), zcol);
+        int blobLen = Sqlite3.sqlite3_column_bytes(this.stmt.getPeer(), zcol);
+        Pointer<Byte> blob = Pointer.pointerToAddress(ptr, Byte.class);
 
         return blob != null ? blob.getBytes(blobLen) : null;
     }
@@ -377,14 +384,14 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     public Object getObject(int i) throws SQLException {
         Sqlite3.DataType dt;
 
-        dt = Sqlite3.DataType.valueOf(Sqlite3.sqlite3_column_type(this.stmt, this.checkColumn(i)));
+        dt = Sqlite3.DataType.valueOf(Sqlite3.sqlite3_column_type(this.stmt.getPeer(), this.checkColumn(i)));
         switch (dt) {
             case SQLITE_NULL:
                 return null;
             case SQLITE_FLOAT:
                 return this.getDouble(i);
             case SQLITE_INTEGER: {
-                long bigint = Sqlite3.sqlite3_column_int64(this.stmt, this.checkColumn(i));
+                long bigint = Sqlite3.sqlite3_column_int64(this.stmt.getPeer(), this.checkColumn(i));
 
                 if (Integer.MIN_VALUE <= bigint && bigint <= Integer.MAX_VALUE) {
                     return (int)bigint;
@@ -800,8 +807,12 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public synchronized Blob getBlob(int i) throws SQLException {
-        Pointer<Byte> ptr = Sqlite3.sqlite3_column_blob(this.stmt, checkColumn(i));
-        int len = Sqlite3.sqlite3_column_bytes(this.stmt, checkColumn(i));
+        long peer = Sqlite3.sqlite3_column_blob(this.stmt.getPeer(), checkColumn(i));
+        int len = Sqlite3.sqlite3_column_bytes(this.stmt.getPeer(), checkColumn(i));
+        Pointer<Byte> ptr = Pointer.pointerToAddress(peer, Byte.class);
+        if(ptr == null) {
+            return null;
+        }
         SqliteBlob retval = new SqliteBlob(ptr.validBytes(len));
 
         this.blobList.add(new WeakReference<Blob>(retval));
