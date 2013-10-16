@@ -107,7 +107,7 @@ public class EscapeParser {
     }
 
     public static String[] split(String sql) {
-        List<String> accum = new ArrayList<>();
+        List<String> accum = new ArrayList<String>();
 
         split(0, sql, 0, accum);
         return accum.toArray(new String[accum.size()]);

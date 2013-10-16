@@ -53,7 +53,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     private final int paramCount;
     private final Object[] paramValues;
     private final int[] paramTypes;
-    private final List<Pair<Object[], int[]>> batchParamList = new ArrayList<>();
+    private final List<Pair<Object[], int[]>> batchParamList =
+            new ArrayList<Pair<Object[], int[]>>();
 
     public SqlitePreparedStatement(SqliteConnection conn, Pointer<Sqlite3.Statement> stmt, String query)
             throws SQLException {
@@ -225,8 +226,13 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     @Override
     public int executeUpdate() throws SQLException {
         if (this.execute()) {
-            try (ResultSet rs = this.getResultSet()) {
+            ResultSet rs = null;
+
+            try {
+                rs = this.getResultSet();
                 rs.next();
+            } finally {
+                SqliteCommon.closeQuietly(rs);
             }
         }
 
@@ -389,14 +395,17 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             this.replaceResultSet(new SqliteResultSet(this, this.resultSetMetadata, this.stmt, this.maxRows));
         }
         else {
+            TimeoutProgressCallback cb = null;
             int rc;
 
-            try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
-                    this.getQueryTimeout() * 1000)) {
+            try {
+                cb = this.timeoutCallback.setExpiration(this.getQueryTimeout() * 1000);
                 rc = Sqlite3.sqlite3_step(stmt);
                 if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
                     throw new SQLTimeoutException("Query timeout reached");
                 }
+            } finally {
+                closeQuietly(cb);
             }
 
             switch (Sqlite3.ReturnCodes.valueOf(rc)) {
@@ -420,7 +429,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     public void addBatch() throws SQLException {
         requireOpened();
 
-        this.batchParamList.add(new Pair<>(this.paramValues, this.paramTypes));
+        this.batchParamList.add(new Pair<Object[], int[]>(this.paramValues, this.paramTypes));
     }
 
     @Override

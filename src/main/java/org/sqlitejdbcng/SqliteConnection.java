@@ -69,7 +69,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         }
     };
 
-    private static final Map<String, EscapeHandler> HANDLER_MAP = new HashMap<>();
+    private static final Map<String, EscapeHandler> HANDLER_MAP =
+            new HashMap<String, EscapeHandler>();
 
     static {
         EscapeHandler passThruPair = new PassthruEscapeHandler(true);
@@ -87,7 +88,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     private final String url;
     private final Pointer<Sqlite3.Sqlite3Db> db;
     private final Properties properties;
-    private final List<WeakRefWithEquals<Statement>> statements = new ArrayList<>();
+    private final List<WeakRefWithEquals<Statement>> statements =
+            new ArrayList<WeakRefWithEquals<Statement>>();
     private SqliteDatabaseMetadata metadata;
     private boolean readOnly;
     private final CloseNotifier closer = new CloseNotifier();
@@ -123,10 +125,16 @@ public class SqliteConnection extends SqliteCommon implements Connection {
          * Do an initial query to make sure the database is valid.  If there
          * is something wrong with it, it will throw a SQLITE_NOTADB error.
          */
-        try (Statement stmt = this.createStatement()) {
-            try (ResultSet rs = stmt.executeQuery("PRAGMA database_list")) {
-                rs.next();
-            }
+        Statement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            stmt = this.createStatement();
+            rs = stmt.executeQuery("PRAGMA database_list");
+            rs.next();
+        } finally {
+            closeQuietly(rs);
+            closeQuietly(stmt);
         }
     }
 
@@ -165,8 +173,12 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     void executeCanned(String sql) throws SQLException {
         requireOpened();
 
-        try (Statement stmt = this.createStatement()) {
+        Statement stmt = null;
+        try {
+            stmt = this.createStatement();
             stmt.executeUpdate(sql);
+        } finally {
+            closeQuietly(stmt);
         }
     }
 
@@ -221,7 +233,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     void statementClosed(Statement stmt) {
         synchronized (this.statements) {
-            this.statements.remove(new WeakRefWithEquals<>(stmt));
+            this.statements.remove(new WeakRefWithEquals<Statement>(stmt));
         }
     }
 
@@ -390,14 +402,21 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public int getTransactionIsolation() throws SQLException {
-        try (Statement stmt = this.createStatement()) {
-            ResultSet rs = stmt.executeQuery("PRAGMA read_uncommitted");
+        Statement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            stmt = this.createStatement();
+            rs = stmt.executeQuery("PRAGMA read_uncommitted");
 
             rs.next();
             if (rs.getBoolean(1))
                 return TRANSACTION_READ_UNCOMMITTED;
             else
                 return TRANSACTION_SERIALIZABLE;
+        } finally {
+            closeQuietly(rs);
+            closeQuietly(stmt);
         }
     }
 
@@ -448,8 +467,12 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
         String fullSql = Sqlite3.mprintf(sql, sp.getSqliteName());
 
-        try (Statement stmt = this.createStatement()) {
+        Statement stmt = null;
+        try {
+            stmt = this.createStatement();
             stmt.executeUpdate(fullSql);
+        } finally {
+            closeQuietly(stmt);
         }
     }
 
@@ -583,7 +606,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
             throw new SQLFeatureNotSupportedException("SQLite does not support client info");
         }
         catch (SQLException e) {
-            Map<String, ClientInfoStatus> map = new HashMap<>();
+            Map<String, ClientInfoStatus> map = new HashMap<String, ClientInfoStatus>();
 
             for (Object key : properties.keySet()) {
                 map.put((String) key, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
@@ -616,19 +639,16 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         throw new SQLFeatureNotSupportedException("SQLite does not support structs");
     }
 
-    @Override
     public void setSchema(String schema) throws SQLException {
         requireOpened();
     }
 
-    @Override
     public String getSchema() throws SQLException {
         requireOpened();
 
         return "";
     }
 
-    @Override
     public synchronized void abort(Executor executor) throws SQLException {
         SecurityManager sm = System.getSecurityManager();
 
@@ -644,12 +664,10 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         }
     }
 
-    @Override
     public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
         throw new SQLFeatureNotSupportedException("SQLite is a local-only database");
     }
 
-    @Override
     public int getNetworkTimeout() throws SQLException {
         throw new SQLFeatureNotSupportedException("SQLite is a local-only database");
     }

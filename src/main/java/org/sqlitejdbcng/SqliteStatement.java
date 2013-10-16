@@ -40,7 +40,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     private static final Logger LOGGER = Logger.getLogger(SqliteConnection.class.getName());
 
     protected final SqliteConnection conn;
-    protected final List<String> batchList = new ArrayList<>();
+    protected final List<String> batchList = new ArrayList<String>();
     protected int queryTimeoutSeconds;
     protected boolean closeOnCompletion;
     protected boolean escapeStatements = true;
@@ -126,7 +126,10 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     @Override
     public int executeUpdate(String s) throws SQLException {
         if (this.execute(s)) {
-            try (ResultSet rs = this.getResultSet()) {
+            ResultSet rs = null;
+
+            try {
+                rs = this.getResultSet();
                 /*
                  * Certain statements are read-only, but are not SELECT
                  * queries.  For example, adding another database to a
@@ -138,6 +141,8 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                             "executeUpdate used with a statement that is returning results -- {0}",
                             new Object[] { s });
                 }
+            } finally {
+                closeQuietly(rs);
             }
         }
 
@@ -269,10 +274,11 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                 }
             }
             else {
+                TimeoutProgressCallback cb = null;
                 int rc;
 
-                try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
-                        this.getQueryTimeout() * 1000)) {
+                try {
+                    cb = this.timeoutCallback.setExpiration(this.getQueryTimeout() * 1000);
                     /*
                      * The sqlite3_changes() function reports the changes for
                      * last DML statement that was executed and not the last
@@ -288,6 +294,8 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                     if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
                         throw new SQLTimeoutException("Query timeout reached");
                     }
+                } finally {
+                    closeQuietly(cb);
                 }
 
                 switch (Sqlite3.ReturnCodes.valueOf(rc)) {
@@ -406,12 +414,17 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         for (String sql : batchCopy) {
             try {
                 if (this.execute(sql)) {
-                    try (ResultSet rs = this.getResultSet()) {
+                    ResultSet rs = null;
+
+                    try {
+                        rs = this.getResultSet();
                         if (rs.next()) {
                             LOGGER.log(Level.WARNING,
                                     "executeBatch used with a statement that is returning results -- {0}",
                                     new Object[] { sql });
                         }
+                    } finally {
+                        closeQuietly(rs);
                     }
                     retval[index] = SUCCESS_NO_INFO;
                 }
@@ -499,14 +512,12 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         return false;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
     public void closeOnCompletion() throws SQLException {
         requireOpened();
 
         this.closeOnCompletion = true;
     }
 
-    @Override
     public boolean isCloseOnCompletion() throws SQLException {
         requireOpened();
 

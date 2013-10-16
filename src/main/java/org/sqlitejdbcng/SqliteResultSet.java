@@ -57,7 +57,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     private final Pointer<Sqlite3.Statement> stmt;
     private final int maxRows;
     private final int columnCount;
-    private final List<WeakReference<Blob>> blobList = new ArrayList<>();
+    private final List<WeakReference<Blob>> blobList = new ArrayList<WeakReference<Blob>>();
     private final SqliteResultSetMetadata metadata;
     private boolean closed;
     private int rowNumber = 0;
@@ -85,8 +85,10 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     }
 
     void step() throws SQLException {
-        try (TimeoutProgressCallback cb = this.timeoutCallback.setExpiration(
-                this.parent.getQueryTimeout() * 1000)) {
+        TimeoutProgressCallback cb = null;
+
+        try {
+            cb = this.timeoutCallback.setExpiration(this.parent.getQueryTimeout() * 1000);
             int rc = Sqlite3.sqlite3_step(this.stmt);
 
             if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
@@ -103,6 +105,8 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
             }
 
             this.lastStepResult = rc;
+        } finally {
+            closeQuietly(cb);
         }
     }
 
@@ -1241,12 +1245,10 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         updateNotSupported();
     }
 
-    @Override
     public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
     public <T> T getObject(String columnLabel, Class<T> type) throws SQLException {
         return this.getObject(this.findColumn(columnLabel), type);
     }

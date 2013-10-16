@@ -38,7 +38,8 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     static {
         SQLKeywords keywords = new SQLKeywords();
-        List<String> sqliteList = new ArrayList<>(Arrays.asList(keywords.getSqliteKeywords()));
+        List<String> sqliteList =
+                new ArrayList<String>(Arrays.asList(keywords.getSqliteKeywords()));
 
         sqliteList.removeAll(Arrays.asList(keywords.getSqlKeywords()));
 
@@ -645,7 +646,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         Statement stmt = this.conn.createStatement();
 
         try {
-            stmt.closeOnCompletion();
+            ((SqliteStatement)stmt).closeOnCompletion();
             return stmt.executeQuery(constantQuery);
         }
         catch (SQLException e) {
@@ -705,7 +706,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
         PreparedStatement ps = this.conn.prepareStatement(sql);
 
-        ps.closeOnCompletion();
+        ((SqlitePreparedStatement)ps).closeOnCompletion();
         try {
             ps.setString(1, catalog);
 
@@ -733,13 +734,20 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getCatalogs() throws SQLException {
-        try (Statement stmt = this.conn.createStatement()) {
-            List<String> dbNames = new ArrayList<>();
+        Statement stmt = null;
+        ResultSet rs = null;
 
-            try (ResultSet rs = stmt.executeQuery("PRAGMA database_list")) {
+        try {
+            stmt = this.conn.createStatement();
+            List<String> dbNames = new ArrayList<String>();
+
+            try {
+                rs = stmt.executeQuery("PRAGMA database_list");
                 while (rs.next()) {
                     dbNames.add(rs.getString(2));
                 }
+            } finally {
+                SqliteCommon.closeQuietly(rs);
             }
 
             String query = Sqlite3.join(
@@ -748,7 +756,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
             PreparedStatement preparedStatement = this.conn.prepareStatement(query);
 
-            preparedStatement.closeOnCompletion();
+            ((SqlitePreparedStatement)preparedStatement).closeOnCompletion();
             try {
                 for (int lpc = 0; lpc < dbNames.size(); lpc++) {
                     preparedStatement.setString(lpc + 1, dbNames.get(lpc));
@@ -761,6 +769,8 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
                 throw e;
             }
+        } finally {
+            SqliteCommon.closeQuietly(stmt);
         }
     }
 
@@ -785,7 +795,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                                 String schemaPattern,
                                 String tableNamePattern,
                                 String columnNamePattern) throws SQLException {
-        List<String> tableList = new ArrayList<>();
+        List<String> tableList = new ArrayList<String>();
         String query;
 
         /* XXX We should iterate over the catalogs instead of just defaulting to "main" */
@@ -799,24 +809,37 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
         query = Sqlite3.mprintf("SELECT tbl_name FROM %Q.sqlite_master WHERE type='table' AND tbl_name LIKE ?",
                 catalog);
-        try (PreparedStatement ps = this.conn.prepareStatement(query)) {
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+
+        try {
+            ps = this.conn.prepareStatement(query);
             ps.setString(1, tableNamePattern);
-            try (ResultSet rs = ps.executeQuery()) {
+            try {
+                rs = ps.executeQuery();
                 while (rs.next()) {
                     tableList.add(rs.getString(1));
                 }
+            } finally {
+                SqliteCommon.closeQuietly(rs);
             }
+        } finally {
+            SqliteCommon.closeQuietly(ps);
         }
 
-        List<ColumnData> columnList = new ArrayList<>();
+        List<ColumnData> columnList = new ArrayList<ColumnData>();
 
         columnNamePattern = columnNamePattern.replaceAll("%", ".*");
-        try (Statement stmt = this.conn.createStatement()) {
+
+        Statement stmt = null;
+        try {
+            stmt = this.conn.createStatement();
             for (String tableName : tableList) {
 
                 query = Sqlite3.mprintf("PRAGMA %Q.table_info(%Q)", catalog, tableName);
 
-                try (ResultSet rs = stmt.executeQuery(query)) {
+                try {
+                    rs = stmt.executeQuery(query);
                     while (rs.next()) {
                         ColumnData cd = new ColumnData(this.conn.getHandle(), catalog, tableName, rs);
 
@@ -824,8 +847,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                             continue;
                         columnList.add(cd);
                     }
+                } finally {
+                    SqliteCommon.closeQuietly(rs);
                 }
             }
+        } finally {
+            SqliteCommon.closeQuietly(stmt);
         }
 
         String constantQuery = "", limit = "";
@@ -842,9 +869,9 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         constantQuery += " ORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION";
         constantQuery += limit;
 
-        PreparedStatement ps = this.conn.prepareStatement(constantQuery);
+        ps = this.conn.prepareStatement(constantQuery);
 
-        ps.closeOnCompletion();
+        ((SqlitePreparedStatement)ps).closeOnCompletion();
 
         int index = 1;
 
@@ -901,16 +928,20 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getPrimaryKeys(String catalog, String schema, String tableName) throws SQLException {
-        List<ColumnData> columnList = new ArrayList<>();
+        List<ColumnData> columnList = new ArrayList<ColumnData>();
         String query, limit = "";
+        Statement stmt = null;
+        ResultSet rs = null;
 
-        try (Statement stmt = this.conn.createStatement()) {
+        try {
+            stmt = this.conn.createStatement();
             if (catalog != null && !catalog.isEmpty())
                 query = Sqlite3.mprintf("PRAGMA %Q.table_info(%Q)", catalog, tableName);
             else
                 query = Sqlite3.mprintf("PRAGMA table_info(%Q)", tableName);
 
-            try (ResultSet rs = stmt.executeQuery(query)) {
+            try {
+                rs = stmt.executeQuery(query);
                 while (rs.next()) {
                     ColumnData cd = new ColumnData(this.conn.getHandle(), catalog, tableName, rs);
 
@@ -918,7 +949,11 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                         continue;
                     columnList.add(cd);
                 }
+            } finally {
+                SqliteCommon.closeQuietly(rs);
             }
+        } finally {
+            SqliteCommon.closeQuietly(stmt);
         }
 
         String constantQuery = "";
@@ -937,7 +972,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
         PreparedStatement ps = this.conn.prepareStatement(constantQuery);
 
-        ps.closeOnCompletion();
+        ((SqlitePreparedStatement)ps).closeOnCompletion();
 
         int index = 1;
 
@@ -952,7 +987,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     }
 
     public static class ForeignKeyData {
-        private static final Map<String, Integer> ACTION_MAP = new HashMap<>();
+        private static final Map<String, Integer> ACTION_MAP = new HashMap<String, Integer>();
 
         static {
             ACTION_MAP.put("SET NULL", DatabaseMetaData.importedKeySetNull);
@@ -1007,10 +1042,13 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     }
 
     private Map<String, List<ForeignKeyData>> getForeignKeyData(String catalog) throws SQLException {
-        Map<String, List<ForeignKeyData>> table2Key = new HashMap<>();
+        Map<String, List<ForeignKeyData>> table2Key = new HashMap<String, List<ForeignKeyData>>();
+        Statement stmt = null;
+        ResultSet rs = null;
 
-        try (Statement stmt = this.conn.createStatement()) {
-            List<String> allTables = new ArrayList<>();
+        try {
+            stmt = this.conn.createStatement();
+            List<String> allTables = new ArrayList<String>();
             String tableQuery;
 
             /* XXX We need to iterate over all of the catalogs */
@@ -1022,10 +1060,13 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                 tableQuery = "SELECT name FROM sqlite_master WHERE type='table'";
             }
 
-            try (ResultSet rs = stmt.executeQuery(tableQuery)) {
+            try {
+                rs = stmt.executeQuery(tableQuery);
                 while (rs.next()) {
                     allTables.add(rs.getString(1));
                 }
+            } finally {
+                SqliteCommon.closeQuietly(rs);
             }
 
             for (String catalogTable : allTables) {
@@ -1034,7 +1075,8 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                     continue;
                 }
 
-                try (ResultSet rs = stmt.getResultSet()) {
+                try {
+                    rs = stmt.getResultSet();
                     while (rs.next()) {
                         ForeignKeyData fkd = new ForeignKeyData(catalogTable, rs);
 
@@ -1046,8 +1088,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                         table2Key.get(fkd.fromTable).add(fkd);
                         table2Key.get(fkd.toTable).add(fkd);
                     }
+                } finally {
+                    SqliteCommon.closeQuietly(rs);
                 }
             }
+        } finally {
+            SqliteCommon.closeQuietly(stmt);
         }
 
         return table2Key;
@@ -1061,7 +1107,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     private ResultSet getForeignKeys(String catalog, String fromTable, String toTable) throws SQLException {
         Map<String, List<ForeignKeyData>> table2Key = getForeignKeyData(catalog);
-        List<ForeignKeyData> columnList = new ArrayList<>();
+        List<ForeignKeyData> columnList = new ArrayList<ForeignKeyData>();
         String limit = "";
 
         if (table2Key.containsKey(fromTable)) {
@@ -1092,7 +1138,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
         PreparedStatement ps = this.conn.prepareStatement(constantQuery);
 
-        ps.closeOnCompletion();
+        ((SqlitePreparedStatement)ps).closeOnCompletion();
 
         int index = 1;
 
@@ -1411,12 +1457,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
     public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern) throws SQLException {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
 
-    @Override
     public boolean generatedKeyAlwaysReturned() throws SQLException {
         return false;  //To change body of implemented methods use File | Settings | File Templates.
     }

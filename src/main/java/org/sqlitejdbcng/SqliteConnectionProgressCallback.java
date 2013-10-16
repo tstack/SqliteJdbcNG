@@ -31,8 +31,7 @@ import org.sqlitejdbcng.bridj.Sqlite3;
 import java.sql.SQLException;
 
 public abstract class SqliteConnectionProgressCallback
-        extends Sqlite3.ProgressCallbackBase
-        implements AutoCloseable {
+        extends Sqlite3.ProgressCallbackBase {
     protected final SqliteConnection conn;
     protected SqliteConnectionProgressCallback other;
 
@@ -48,7 +47,6 @@ public abstract class SqliteConnectionProgressCallback
         return this.other;
     }
 
-    @Override
     public void close() throws SQLException {
 
     }

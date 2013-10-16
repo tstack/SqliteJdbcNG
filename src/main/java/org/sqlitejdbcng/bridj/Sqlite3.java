@@ -332,7 +332,7 @@ public class Sqlite3 {
         }
         catch (Throwable e) {
             DB_RELEASER.release(db);
-            throw e;
+            throw new RuntimeException(e);
         }
     }
 
@@ -345,7 +345,7 @@ public class Sqlite3 {
         }
         catch (Throwable e) {
             FREE_RELEASER.release(mem);
-            throw e;
+            throw new RuntimeException(e);
         }
     }
 
@@ -406,7 +406,8 @@ public class Sqlite3 {
         SQLITE_OPEN_PRIVATECACHE(0x00040000), /* Ok for sqlite3_open_v2() */
         SQLITE_OPEN_WAL(0x00080000); /* VFS only */
 
-        private static final HashMap<Long, OpenFlag> VALUE_TO_ENUM = new HashMap<>();
+        private static final HashMap<Long, OpenFlag> VALUE_TO_ENUM =
+                new HashMap<Long, OpenFlag>();
 
         static {
             for (OpenFlag rc : values()) {
@@ -457,7 +458,8 @@ public class Sqlite3 {
         SQLITE_CONFIG_PCACHE2(18), /* sqlite3_pcache_methods2* */
         SQLITE_CONFIG_GETPCACHE2(19); /* sqlite3_pcache_methods2* */
 
-        private static final HashMap<Integer, ConfigOption> VALUE_TO_ENUM = new HashMap<>();
+        private static final HashMap<Integer, ConfigOption> VALUE_TO_ENUM =
+                new HashMap<Integer, ConfigOption>();
 
         static {
             for (ConfigOption rc : values()) {
@@ -515,7 +517,8 @@ public class Sqlite3 {
         SQLITE_SAVEPOINT(32),   /* Operation       Savepoint Name  */
         SQLITE_COPY(0);   /* No longer used */
 
-        private static final HashMap<Integer, ActionCode> VALUE_TO_ENUM = new HashMap<>();
+        private static final HashMap<Integer, ActionCode> VALUE_TO_ENUM =
+                new HashMap<Integer, ActionCode>();
 
         static {
             for (ActionCode rc : values()) {
@@ -543,7 +546,8 @@ public class Sqlite3 {
         SQLITE_DENY(1),
         SQLITE_IGNORE(2);
 
-        private static final HashMap<Integer, AuthResult> VALUE_TO_ENUM = new HashMap<>();
+        private static final HashMap<Integer, AuthResult> VALUE_TO_ENUM =
+                new HashMap<Integer, AuthResult>();
 
         static {
             for (AuthResult rc : values()) {
@@ -579,7 +583,8 @@ public class Sqlite3 {
         SQLITE_LIMIT_VARIABLE_NUMBER(9),
         SQLITE_LIMIT_TRIGGER_DEPTH(10);
 
-        private static final HashMap<Integer, Limit> VALUE_TO_ENUM = new HashMap<>();
+        private static final HashMap<Integer, Limit> VALUE_TO_ENUM =
+                new HashMap<Integer, Limit>();
 
         static {
             for (Limit rc : values()) {
@@ -670,7 +675,8 @@ public class Sqlite3 {
         SQLITE_ROW(100, "sqlite3_step() has another row ready"),
         SQLITE_DONE(101, "sqlite3_step() has finished executing");
 
-        private static final HashMap<Long, ReturnCodes> VALUE_TO_ENUM = new HashMap<>();
+        private static final HashMap<Long, ReturnCodes> VALUE_TO_ENUM =
+                new HashMap<Long, ReturnCodes>();
 
         static {
             for (ReturnCodes rc : values()) {

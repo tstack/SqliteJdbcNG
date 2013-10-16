@@ -44,7 +44,7 @@ public class ColumnData {
             "([A-Z_0-9 ]+)\\s*" +
                     "(?:\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+))?\\s*\\))?");
 
-    private static final Map<String, Integer> TYPE_MAP = new HashMap<>();
+    private static final Map<String, Integer> TYPE_MAP = new HashMap<String, Integer>();
 
     static {
         /* XXX this isn't the right way to do this... */
@@ -120,7 +120,14 @@ public class ColumnData {
             Field typeField = Types.class.getField(this.type);
 
             sqlType = typeField.getInt(Types.class);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
+        } catch (NoSuchFieldException e) {
+            Integer mappedType = TYPE_MAP.get(this.type);
+
+            if (mappedType == null)
+                sqlType = Types.VARCHAR;
+            else
+                sqlType = mappedType;
+        } catch (IllegalAccessException e) {
             Integer mappedType = TYPE_MAP.get(this.type);
 
             if (mappedType == null)

@@ -26,13 +26,18 @@
 
 package org.sqlitejdbcng;
 
+import org.sqlitejdbcng.internal.TimeoutProgressCallback;
+
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLWarning;
+import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class SqliteCommon {
@@ -72,6 +77,33 @@ public class SqliteCommon {
             return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
         }
     };
+
+    public static void closeQuietly(Statement stmt) {
+        try {
+            if (stmt != null)
+                stmt.close();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Unable to close statement", e);
+        }
+    }
+
+    public static void closeQuietly(ResultSet rs) {
+        try {
+            if (rs != null)
+                rs.close();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Unable to close statement", e);
+        }
+    }
+
+    public static void closeQuietly(TimeoutProgressCallback cb) {
+        try {
+            if (cb != null)
+                cb.close();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Unable to close statement", e);
+        }
+    }
 
     protected SQLWarning warnings;
 

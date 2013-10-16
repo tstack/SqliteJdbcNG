@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
 public class FunctionEscapeHandler implements EscapeHandler {
     private static final Pattern FUNC_PATTERN = Pattern.compile("([a-zA-Z0-9_]+)\\s*(\\(.*\\))?$");
 
-    private static final Map<String, String> SIMPLE_MAPPINGS = new HashMap<>();
+    private static final Map<String, String> SIMPLE_MAPPINGS = new HashMap<String, String>();
 
     static {
         SIMPLE_MAPPINGS.put("CHAR_LENGTH", "LENGTH");

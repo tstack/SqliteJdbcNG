@@ -33,7 +33,7 @@ import java.util.logging.Logger;
 
 public class UsageWarning {
     private static final Logger LOGGER = Logger.getLogger(UsageWarning.class.getName());
-    private static final Set<String> LOGGED_MESSAGES = new HashSet<>();
+    private static final Set<String> LOGGED_MESSAGES = new HashSet<String>();
 
     private UsageWarning() {
     }

@@ -36,10 +36,12 @@ import java.util.List;
 public class SQLKeywords {
     static final String[] readResource(String name) throws IOException {
         InputStream is = SQLKeywords.class.getResourceAsStream(name);
+        BufferedReader reader = null;
 
         if (is == null)
             throw new RuntimeException("Bad resource name -- " + name);
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+        try {
+            reader = new BufferedReader(new InputStreamReader(is));
             List<String> keywords = new ArrayList<String>();
             String line;
 
@@ -48,6 +50,8 @@ public class SQLKeywords {
             }
 
             return keywords.toArray(new String[keywords.size()]);
+        } finally {
+            reader.close();
         }
     }
 
