@@ -97,7 +97,6 @@ public class SqliteDriver implements Driver {
         return false;
     }
 
-    @Override
     public Logger getParentLogger() throws SQLFeatureNotSupportedException {
         return LOGGER;
     }
