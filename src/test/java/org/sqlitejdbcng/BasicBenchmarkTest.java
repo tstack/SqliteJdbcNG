@@ -73,4 +73,28 @@ public class BasicBenchmarkTest extends SqliteTestHelper {
             }
         }
     }
+
+    @Test
+    public void testLargeQuery() throws Exception {
+        String name = "small string value";
+
+        this.conn.setAutoCommit(false);
+        try (PreparedStatement ps = this.conn.prepareStatement("INSERT INTO test_table VALUES (?, ?)")) {
+            for (int lpc = 0; lpc < 25000; lpc++) {
+                ps.setInt(1, 100 + lpc);
+                ps.setString(2, name);
+                ps.executeUpdate();
+            }
+        }
+        this.conn.commit();
+
+        try (Statement stmt = this.conn.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery("SELECT * FROM test_table")) {
+                while (rs.next()) {
+                    int i = rs.getInt(1);
+                    String s = rs.getString(2);
+                }
+            }
+        }
+    }
 }
