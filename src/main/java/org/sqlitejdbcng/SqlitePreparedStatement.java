@@ -400,7 +400,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
             try {
                 cb = this.timeoutCallback.setExpiration(this.getQueryTimeout() * 1000);
-                rc = Sqlite3.sqlite3_step(stmt);
+                rc = Sqlite3.sqlite3_step(stmt.getPeer());
                 if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
                     throw new SQLTimeoutException("Query timeout reached");
                 }
