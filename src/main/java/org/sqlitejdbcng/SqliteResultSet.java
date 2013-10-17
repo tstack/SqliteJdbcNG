@@ -190,16 +190,15 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
                 Sqlite3.DataType.SQLITE_NULL.value());
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public String getString(int i) throws SQLException {
         long ptr = Sqlite3.sqlite3_column_text(stmt.getPeer(), checkColumn(i));
-        if(ptr != 0) {
-            Pointer<String> str = Pointer.pointerToAddress(ptr, String.class);
-            if(str != null) {
-                return str.getCString();
-            } 
-        } 
+        Pointer<String> str = Pointer.pointerToAddress(ptr, String.class, null);
+
+        if (str != null) {
+            return str.getCString();
+        }
+
         return null;
     }
 
@@ -814,9 +813,11 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         long peer = Sqlite3.sqlite3_column_blob(this.stmt.getPeer(), checkColumn(i));
         int len = Sqlite3.sqlite3_column_bytes(this.stmt.getPeer(), checkColumn(i));
         Pointer<Byte> ptr = Pointer.pointerToAddress(peer, Byte.class);
-        if(ptr == null) {
+
+        if (ptr == null) {
             return null;
         }
+
         SqliteBlob retval = new SqliteBlob(ptr.validBytes(len));
 
         this.blobList.add(new WeakReference<Blob>(retval));

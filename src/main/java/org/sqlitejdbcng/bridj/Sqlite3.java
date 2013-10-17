@@ -265,7 +265,7 @@ public class Sqlite3 {
                                                 Pointer<Pointer<Byte>> tail);
 
     public static native Pointer<Byte> sqlite3_sql(Pointer<Statement> stmt);
-    public static native int sqlite3_step(/* Pointer<Statement> */ @Ptr long stmt);
+    public static native int sqlite3_step(@Ptr long stmt);
 
     public static native int sqlite3_stmt_readonly(Pointer<Statement> stmt);
 
@@ -307,7 +307,7 @@ public class Sqlite3 {
     public static native int sqlite3_column_count(Pointer<Statement> stmt);
     public static native Pointer<Byte> sqlite3_column_name(Pointer<Statement> stmt, int col);
     public static native Pointer<Byte> sqlite3_column_decltype(Pointer<Statement> stmt, int col);
-    public static native int sqlite3_column_type(/* Pointer<Statement> */ @Ptr long stmt, int col);
+    public static native int sqlite3_column_type(@Ptr long stmt, int col);
 
     @Optional
     public static native Pointer<Byte> sqlite3_column_database_name(Pointer<Statement> stmt, int col);
@@ -316,12 +316,12 @@ public class Sqlite3 {
     @Optional
     public static native Pointer<Byte> sqlite3_column_origin_name(Pointer<Statement> stmt, int col);
 
-    public static native /* Pointer<Byte> */ @Ptr long sqlite3_column_blob(/* Pointer<Statement> */ @Ptr long stmt, int col);
-    public static native int sqlite3_column_bytes(/* Pointer<Statement> */ @Ptr long stmt, int col);
-    public static native /* Pointer<Byte> */ @Ptr long sqlite3_column_text(/* Pointer<Statement> */ @Ptr long stmt, int col);
-    public static native int sqlite3_column_int(/* Pointer<Statement> */ @Ptr long stmt, int col);
-    public static native long sqlite3_column_int64(/* Pointer<Statement> */ @Ptr long stmt, int col);
-    public static native double sqlite3_column_double(/* Pointer<Statement> */ @Ptr long stmt, int col);
+    public static native @Ptr long sqlite3_column_blob(@Ptr long stmt, int col);
+    public static native int sqlite3_column_bytes(@Ptr long stmt, int col);
+    public static native @Ptr long sqlite3_column_text(@Ptr long stmt, int col);
+    public static native int sqlite3_column_int(@Ptr long stmt, int col);
+    public static native long sqlite3_column_int64(@Ptr long stmt, int col);
+    public static native double sqlite3_column_double(@Ptr long stmt, int col);
 
     private static Pointer<BufferDestructorBase> constantFunctionValue(long value) {
         Pointer ptr = Pointer.pointerToAddress(value, 0, new NoopReleaser());
