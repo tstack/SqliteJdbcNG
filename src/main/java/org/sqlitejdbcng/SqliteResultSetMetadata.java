@@ -79,7 +79,7 @@ public class SqliteResultSetMetadata implements ResultSetMetaData {
             Sqlite3.DataType dt;
             int exprType;
 
-            exprType = Sqlite3.sqlite3_column_type(stmt, retval);
+            exprType = Sqlite3.sqlite3_column_type(stmt.getPeer(), retval);
             dt = Sqlite3.DataType.valueOf(exprType);
             type = dt.getSqlType();
         }
