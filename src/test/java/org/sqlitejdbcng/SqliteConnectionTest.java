@@ -30,6 +30,9 @@ import org.bridj.Pointer;
 import org.junit.Test;
 import org.sqlitejdbcng.bridj.Sqlite3;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.Executor;
@@ -37,6 +40,13 @@ import java.util.concurrent.Executor;
 import static org.junit.Assert.*;
 
 public class SqliteConnectionTest extends SqliteTestHelper {
+    @Test
+    public void testFileType() throws Exception {
+        Path path = Paths.get(this.dbFile.getAbsolutePath());
+
+        assertEquals("application/x-sqlite3", Files.probeContentType(path));
+    }
+
     @Test
     public void testIsValid() throws Exception {
         assertTrue(this.conn.isValid(0));

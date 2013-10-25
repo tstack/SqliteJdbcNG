@@ -204,19 +204,23 @@ public class SqliteStatementTest extends SqliteTestHelper {
     @Test
     public void testCancel() throws Exception {
         try (final Statement stmt = this.conn.createStatement()) {
+            final Object barrier = new Object();
+
             stmt.cancel();
 
             this.sqliteConnection.setProgressStep(1);
-            this.sqliteConnection.pushCallback(new DelayProgressCallback(sqliteConnection, 10));
+            this.sqliteConnection.pushCallback(new DelayProgressCallback(sqliteConnection, 100));
 
             Thread canceller = new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    synchronized (barrier) {
+                        barrier.notifyAll();
+                    }
                     try {
                         Thread.sleep(10);
                         stmt.cancel();
-                    }
-                    catch (InterruptedException e) {
+                    } catch (InterruptedException e) {
 
                     } catch (SQLException e) {
 
@@ -225,9 +229,12 @@ public class SqliteStatementTest extends SqliteTestHelper {
             });
 
             canceller.start();
+            synchronized (barrier) {
+                barrier.wait();
+            }
 
             try {
-                stmt.executeUpdate("INSERT INTO test_table VALUES (2, 'testing')");
+                stmt.executeUpdate("INSERT INTO test_table VALUES (2, 'testing cancel')");
                 fail("Statement was not cancelled?");
             }
             catch (SQLException e) {
