@@ -159,27 +159,27 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsMixedCaseQuotedIdentifiers() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
     public boolean storesUpperCaseQuotedIdentifiers() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
     public boolean storesLowerCaseQuotedIdentifiers() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
     public boolean storesMixedCaseQuotedIdentifiers() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public String getIdentifierQuoteString() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return "\"";
     }
 
     @Override
@@ -214,17 +214,17 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public String getExtraNameCharacters() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return "";
     }
 
     @Override
     public boolean supportsAlterTableWithAddColumn() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public boolean supportsAlterTableWithDropColumn() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
@@ -304,17 +304,17 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsMinimumSQLGrammar() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public boolean supportsCoreSQLGrammar() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public boolean supportsExtendedSQLGrammar() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
