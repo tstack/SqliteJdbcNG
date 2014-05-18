@@ -26,27 +26,31 @@
 
 package org.sqlitejdbcng.bridj;
 
-import org.bridj.*;
-import org.bridj.ann.Library;
-import org.bridj.ann.Optional;
-
-import java.io.IOException;
-import java.sql.*;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.bridj.BridJ;
 import org.bridj.Callback;
 import org.bridj.FlagSet;
 import org.bridj.IntValuedEnum;
+import org.bridj.NativeLibrary;
 import org.bridj.Pointer;
 import org.bridj.StructObject;
 import org.bridj.ann.Library;
 import org.bridj.ann.Optional;
 import org.bridj.ann.Ptr;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLSyntaxErrorException;
+import java.sql.SQLTransactionRollbackException;
+import java.sql.SQLTransientConnectionException;
+import java.sql.SQLTransientException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 @Library("sqlite3")
 public class Sqlite3 {
@@ -655,35 +659,35 @@ public class Sqlite3 {
     }
 
     public enum ReturnCodes {
-        SQLITE_OK(0, "Successful result"),
-        SQLITE_ERROR(1, "SQL error or missing database"),
-        SQLITE_INTERNAL(2, "Internal logic error in SQLite"),
-        SQLITE_PERM(3, "Access permission denied"),
-        SQLITE_ABORT(4, "Callback routine requested an abort"),
-        SQLITE_BUSY(5, "The database file is locked"),
-        SQLITE_LOCKED(6, "A table in the database is locked"),
-        SQLITE_NOMEM(7, "A malloc() failed"),
-        SQLITE_READONLY(8, "Attempt to write a readonly database"),
-        SQLITE_INTERRUPT(9, "Operation terminated by sqlite3_interrupt()"),
-        SQLITE_IOERR(10, "Some kind of disk I/O error occurred"),
-        SQLITE_CORRUPT(11, "The database disk image is malformed"),
-        SQLITE_NOTFOUND(12, "Unknown opcode in sqlite3_file_control()"),
-        SQLITE_FULL(13, "Insertion failed because database is full"),
-        SQLITE_CANTOPEN(14, "Unable to open the database file"),
-        SQLITE_PROTOCOL(15, "Database lock protocol error"),
-        SQLITE_EMPTY(16, "Database is empty"),
-        SQLITE_SCHEMA(17, "The database schema changed"),
-        SQLITE_TOOBIG(18, "String or BLOB exceeds size limit"),
-        SQLITE_CONSTRAINT(19, "Abort due to constraint violation"),
-        SQLITE_MISMATCH(20, "Data type mismatch"),
-        SQLITE_MISUSE(21, "Library used incorrectly"),
-        SQLITE_NOLFS(22, "Uses OS features not supported on host"),
-        SQLITE_AUTH(23, "Authorization denied"),
-        SQLITE_FORMAT(24, "Auxiliary database format error"),
-        SQLITE_RANGE(25, "2nd parameter to sqlite3_bind out of range"),
-        SQLITE_NOTADB(26, "File opened that is not a database file"),
-        SQLITE_ROW(100, "sqlite3_step() has another row ready"),
-        SQLITE_DONE(101, "sqlite3_step() has finished executing");
+        SQLITE_OK("00", 0, "Successful result"),
+        SQLITE_ERROR("42", 1, "SQL error or missing database"),
+        SQLITE_INTERNAL("XX", 2, "Internal logic error in SQLite"),
+        SQLITE_PERM("42", 3, "Access permission denied"),
+        SQLITE_ABORT("57", 4, "Callback routine requested an abort"),
+        SQLITE_BUSY("55", 5, "The database file is locked"),
+        SQLITE_LOCKED("55", 6, "A table in the database is locked"),
+        SQLITE_NOMEM("53", 7, "A malloc() failed"),
+        SQLITE_READONLY("08", 8, "Attempt to write a readonly database"),
+        SQLITE_INTERRUPT("57", 9, "Operation terminated by sqlite3_interrupt()"),
+        SQLITE_IOERR("58", 10, "Some kind of disk I/O error occurred"),
+        SQLITE_CORRUPT("08", 11, "The database disk image is malformed"),
+        SQLITE_NOTFOUND("XX", 12, "Unknown opcode in sqlite3_file_control()"),
+        SQLITE_FULL("53", 13, "Insertion failed because database is full"),
+        SQLITE_CANTOPEN("08", 14, "Unable to open the database file"),
+        SQLITE_PROTOCOL("F0", 15, "Database lock protocol error"),
+        SQLITE_EMPTY("08", 16, "Database is empty"),
+        SQLITE_SCHEMA("42", 17, "The database schema changed"),
+        SQLITE_TOOBIG("54", 18, "String or BLOB exceeds size limit"),
+        SQLITE_CONSTRAINT("23", 19, "Abort due to constraint violation"),
+        SQLITE_MISMATCH("22", 20, "Data type mismatch"),
+        SQLITE_MISUSE("XX", 21, "Library used incorrectly"),
+        SQLITE_NOLFS("0A", 22, "Uses OS features not supported on host"),
+        SQLITE_AUTH("42", 23, "Authorization denied"),
+        SQLITE_FORMAT("08", 24, "Auxiliary database format error"),
+        SQLITE_RANGE("42", 25, "2nd parameter to sqlite3_bind out of range"),
+        SQLITE_NOTADB("08", 26, "File opened that is not a database file"),
+        SQLITE_ROW("00", 100, "sqlite3_step() has another row ready"),
+        SQLITE_DONE("00", 101, "sqlite3_step() has finished executing");
 
         private static final HashMap<Long, ReturnCodes> VALUE_TO_ENUM =
                 new HashMap<Long, ReturnCodes>();
@@ -699,15 +703,25 @@ public class Sqlite3 {
         }
 
         private final long value;
+        private final String stateClass;
         private final String msg;
 
-        ReturnCodes(long value_in, String msg) {
+        ReturnCodes(String stateClass, long value_in, String msg) {
+            this.stateClass = stateClass;
             this.value = value_in;
             this.msg = msg;
         }
 
         public long value() {
             return this.value;
+        }
+
+        public String stateClass() {
+            return this.stateClass;
+        }
+
+        public String sqlState() {
+            return String.format("%s%03d", this.stateClass, this.value);
         }
 
         public String message() {
@@ -724,7 +738,7 @@ public class Sqlite3 {
             case SQLITE_DONE:
                 break;
             default: {
-                String msg;
+                String msg, sqlState;
 
                 if (db != null) {
                     msg = sqlite3_errmsg(db).getCString();
@@ -732,31 +746,32 @@ public class Sqlite3 {
                 else {
                     msg = rcEnum.message();
                 }
+                sqlState = rcEnum.sqlState();
 
                 switch (rcEnum) {
                     case SQLITE_ERROR:
                         if (exec)
-                            throw new SQLTransientException(msg, "", rc);
+                            throw new SQLTransientException(msg, sqlState, rc);
                         else
-                            throw new SQLSyntaxErrorException(msg, "", rc);
+                            throw new SQLSyntaxErrorException(msg, sqlState, rc);
                     case SQLITE_AUTH:
                     case SQLITE_CORRUPT:
-                        throw new SQLNonTransientException(msg, "", rc);
+                        throw new SQLNonTransientException(msg, sqlState, rc);
                     case SQLITE_BUSY:
                     case SQLITE_IOERR:
                     case SQLITE_NOTFOUND:
                     case SQLITE_INTERRUPT:
-                        throw new SQLTransientException(msg, "", rc);
+                        throw new SQLTransientException(msg, sqlState, rc);
                     case SQLITE_LOCKED:
-                        throw new SQLTransactionRollbackException(msg, "", rc);
+                        throw new SQLTransactionRollbackException(msg, sqlState, rc);
                     case SQLITE_NOTADB:
-                        throw new SQLNonTransientConnectionException(msg, "", rc);
+                        throw new SQLNonTransientConnectionException(msg, sqlState, rc);
                     case SQLITE_CANTOPEN:
-                        throw new SQLTransientConnectionException(msg, "", rc);
+                        throw new SQLTransientConnectionException(msg, sqlState, rc);
                     case SQLITE_CONSTRAINT:
-                        throw new SQLIntegrityConstraintViolationException(msg, "", rc);
+                        throw new SQLIntegrityConstraintViolationException(msg, sqlState, rc);
                     default:
-                        throw new SQLException(msg + ": " + rc, "", rc);
+                        throw new SQLException(msg + ": " + rc, sqlState, rc);
                 }
             }
         }

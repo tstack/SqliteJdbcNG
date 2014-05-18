@@ -1,0 +1,4 @@
+SELECT '' AS NAME,
+    0 as MAX_LEN,
+    '' as DEFAULT_VALUE,
+    '' as DESCRIPTION LIMIT 0

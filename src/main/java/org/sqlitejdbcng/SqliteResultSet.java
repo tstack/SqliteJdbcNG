@@ -77,11 +77,11 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     private void requireOpen() throws SQLException {
         if (this.closed)
-            throw new SQLNonTransientException("Result set is closed");
+            throw new SQLNonTransientException("Result set is closed", "24000");
     }
 
     private void updateNotSupported() throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support result set updates");
+        throw new SQLFeatureNotSupportedException("SQLite does not support result set updates", "0A000");
     }
 
     void step() throws SQLException {
@@ -92,7 +92,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
             int rc = Sqlite3.sqlite3_step(this.stmt.getPeer());
 
             if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
-                throw new SQLTimeoutException("Query timeout reached");
+                throw new SQLTimeoutException("Query timeout reached", "57000");
             }
 
             switch (Sqlite3.ReturnCodes.valueOf(rc)) {
@@ -165,9 +165,10 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     int checkColumnIndex(int i) throws SQLException {
         if (i < 1)
-            throw new SQLNonTransientException("Column index must be greater than zero");
+            throw new SQLNonTransientException("Column index must be greater than zero", "42000");
         if (i > this.columnCount)
-            throw new SQLNonTransientException("Column index must be less than or equal to " + this.columnCount);
+            throw new SQLNonTransientException("Column index must be less than or equal to " +
+                    this.columnCount, "42000");
 
         return i - 1;
     }
@@ -176,7 +177,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         requireOpen();
 
         if (this.rowNumber == 0)
-            throw new SQLNonTransientException("The next() method must be called before getting any data.");
+            throw new SQLNonTransientException("The next() method must be called before getting any data.", "24000");
         this.checkColumnIndex(i);
 
         this.lastColumn = i;
@@ -239,7 +240,8 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public BigDecimal getBigDecimal(int i, int i2) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        throw new SQLFeatureNotSupportedException("Getting a BigDecimal column with scale is not " +
+                "supported", "0A000");
     }
 
     @Override
@@ -373,7 +375,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public String getCursorName() throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support named cursors");
+        throw new SQLFeatureNotSupportedException("SQLite does not support named cursors", "0A000");
     }
 
     @Override
@@ -451,7 +453,8 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
                 retval = new BigDecimal(str);
             }
             catch (NumberFormatException e) {
-                throw new SQLDataException("Cannot convert string to BigDecimal: " + str, e);
+                throw new SQLDataException("Cannot convert string to BigDecimal: " + str, "22000",
+                        e);
             }
         }
 
@@ -526,7 +529,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     @Override
     public void setFetchDirection(int direction) throws SQLException {
         if (direction != FETCH_FORWARD)
-            throw new SQLFeatureNotSupportedException("SQLite only supports FETCH_FORWARD result sets");
+            throw new SQLFeatureNotSupportedException("SQLite only supports FETCH_FORWARD result sets", "0A000");
     }
 
     @Override
@@ -805,7 +808,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Ref getRef(int i) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support REF values");
+        throw new SQLFeatureNotSupportedException("SQLite does not support REF values", "0A000");
     }
 
     @Override
@@ -832,7 +835,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Array getArray(int i) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support arrays");
+        throw new SQLFeatureNotSupportedException("SQLite does not support arrays", "0A000");
     }
 
     @Override
@@ -842,7 +845,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Ref getRef(String s) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support REF values");
+        throw new SQLFeatureNotSupportedException("SQLite does not support REF values", "0A000");
     }
 
     @Override
@@ -857,7 +860,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public Array getArray(String s) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support arrays");
+        throw new SQLFeatureNotSupportedException("SQLite does not support arrays", "0A000");
     }
 
     @Override
@@ -876,7 +879,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
             dateFormat.parse(dateString);
             return new Date(calendar.getTime().getTime());
         } catch (ParseException e) {
-            throw new SQLDataException("Invalid date", e);
+            throw new SQLDataException("Invalid date", "22000", e);
         }
     }
 
@@ -901,7 +904,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         String val;
 
         if (!m.matches()) {
-            throw new SQLDataException("Invalid time -- " + timeString);
+            throw new SQLDataException("Invalid time -- " + timeString, "22000");
         }
 
         calendar.set(Calendar.HOUR_OF_DAY, Integer.valueOf(m.group(1)));
@@ -936,7 +939,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         Matcher m = TS_PATTERN.matcher(value);
 
         if (!m.matches()) {
-            throw new SQLDataException("Bad timestamp value -- " + value);
+            throw new SQLDataException("Bad timestamp value -- " + value, "22000");
         }
 
         cal.clear();
@@ -968,7 +971,8 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
             return new URL(this.getString(i));
         }
         catch (MalformedURLException e) {
-            throw new SQLDataException("Invalid URL", "", e);
+            throw new SQLDataException(String.format("Invalid URL: %s", this.getString(i)), "22000",
+                    e);
         }
     }
 
@@ -1079,7 +1083,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
 
     @Override
     public SQLXML getSQLXML(int i) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support SQLXML");
+        throw new SQLFeatureNotSupportedException("SQLite does not support SQLXML", "0A000");
     }
 
     @Override

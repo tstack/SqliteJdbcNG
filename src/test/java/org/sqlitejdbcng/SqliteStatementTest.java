@@ -29,10 +29,23 @@ package org.sqlitejdbcng;
 import org.junit.Test;
 import org.sqlitejdbcng.bridj.Sqlite3;
 
-import java.sql.*;
+import java.sql.BatchUpdateException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLSyntaxErrorException;
+import java.sql.SQLTimeoutException;
+import java.sql.Statement;
 import java.util.logging.Logger;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 public class SqliteStatementTest extends SqliteTestHelper {
@@ -57,13 +70,21 @@ public class SqliteStatementTest extends SqliteTestHelper {
 
             assertArrayEquals(new int[0], stmt.executeBatch());
 
+            stmt.addBatch("SELECT * FROM test_table");
             stmt.addBatch("INSERT INTO test_table VALUES (4, 'testing again too')");
             stmt.addBatch("INSERT INTO test_table VALUES (4, 'testing again too')");
+            stmt.addBatch("INSERT INTO test_table VALUES (4, 'testing again too')");
+            stmt.addBatch("INSERT INTO test_table VALUES (5, 'testing again with more')");
+            stmt.addBatch("SELECT * FROM test_table");
             try {
                 stmt.executeBatch();
                 fail("executeBatch should not have succeeded");
             }
             catch (BatchUpdateException e) {
+                assertArrayEquals(new int[] {Statement.SUCCESS_NO_INFO, 1, Statement.EXECUTE_FAILED,
+                        Statement.EXECUTE_FAILED, 1, Statement.SUCCESS_NO_INFO},
+                        e.getUpdateCounts());
+                assertNotNull(e.getCause());
             }
 
             assertArrayEquals(new int[0], stmt.executeBatch());
@@ -73,6 +94,7 @@ public class SqliteStatementTest extends SqliteTestHelper {
                     "|2|testing|",
                     "|3|testing again|",
                     "|4|testing again too|",
+                    "|5|testing again with more|",
             };
 
             try (ResultSet rs = stmt.executeQuery("SELECT * FROM test_table")) {

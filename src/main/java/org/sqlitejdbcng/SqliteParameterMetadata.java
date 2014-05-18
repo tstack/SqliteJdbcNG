@@ -94,7 +94,7 @@ public class SqliteParameterMetadata implements ParameterMetaData {
 
     @Override
     public <T> T unwrap(Class<T> iface) throws SQLException {
-        throw new SQLNonTransientException("No object implements the given class");
+        throw new SQLNonTransientException("No object implements the given class", "42000");
     }
 
     @Override

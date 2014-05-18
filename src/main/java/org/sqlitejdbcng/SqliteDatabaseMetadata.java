@@ -29,12 +29,45 @@ package org.sqlitejdbcng;
 import org.sqlitejdbcng.bridj.Sqlite3;
 import org.sqlitejdbcng.internal.ColumnData;
 import org.sqlitejdbcng.internal.SQLKeywords;
+import org.sqlitejdbcng.internal.SQLTemplate;
 
 import java.sql.*;
 import java.util.*;
 
 public class SqliteDatabaseMetadata implements DatabaseMetaData {
     private static final String KEYWORD_LIST;
+    private static final String GET_PROCEDURES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-procedures.sql");
+    private static final String GET_PROCEDURE_COLUMNS_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-procedure-columns.sql");
+    private static final String TYPE_INFO_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-type-info.sql");
+    private static final String GET_TABLES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-tables.sql");
+    private static final String GET_COLUMNS_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-columns.sql");
+    private static final String GET_COLUMN_PRIVILEGES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-column-privileges.sql");
+    private static final String GET_TABLE_PRIVILEGES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-table-privileges.sql");
+    private static final String GET_PRIMARY_KEY_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-primary-key.sql");
+    private static final String GET_FOREIGN_KEY_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-foreign-key.sql");
+    private static final String GET_UDTS_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-udts.sql");
+    private static final String GET_ATTRIBUTES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-attributes.sql");
+    private static final String GET_CLIENT_INFO_PROPERTIES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-client-info-properties.sql");
+
+    private static final Map<String, Integer> TYPE_MAP = new LinkedHashMap<String, Integer>() {{
+        put("NULL", Types.NULL);
+        put("INTEGER", Types.INTEGER);
+        put("REAL", Types.REAL);
+        put("TEXT", Types.VARCHAR);
+        put("BLOB", Types.BLOB);
+    }};
 
     static {
         SQLKeywords keywords = new SQLKeywords();
@@ -658,22 +691,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getProcedures(String s, String s2, String s3) throws SQLException {
-        return this.executeConstantQuery(
-                "SELECT null as PROCEDURE_CAT, null as PROCEDURE_SCHEM, null as PROCEDURE_NAME, " +
-                        "null as RES1, null as RES2, null as RES3, null as REMARKS, " +
-                        "null as PROCEDURE_TYPE, null as SPECIFIC_NAME LIMIT 0");
+        return this.executeConstantQuery(GET_PROCEDURES_TEMPLATE);
     }
 
     @Override
     public ResultSet getProcedureColumns(String s, String s2, String s3, String s4) throws SQLException {
-        return this.executeConstantQuery(
-                "SELECT null as PROCEDURE_CAT, null as PROCEDURE_SCHEM, null as PROCEDURE_NAME, " +
-                        "null as COLUMN_NAME, null as COLUMN_TYPE, null as DATA_TYPE, " +
-                        "null as TYPE_NAME, null as PRECISION, null as LENGTH, null as SCALE, " +
-                        "null as RADIX, null as NULLABLE, null as REMARKS, null as COLUMN_DEF, " +
-                        "null as SQL_DATA_TYPE, null as SQL_DATETIME_SUB, null as CHAR_OCTET_LENGTH, " +
-                        "null as ORDINAL_POSITION, null as IS_NULLABLE, null as SPECIFIC_NAME " +
-                        "LIMIT 0");
+        return this.executeConstantQuery(GET_PROCEDURE_COLUMNS_TEMPLATE);
     }
 
     private static final String[] DEFAULT_TABLE_TYPES = { "TABLE", "VIEW" };
@@ -683,8 +706,9 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                                String schemaPattern,
                                String tableNamePattern,
                                String[] types) throws SQLException {
-        if (schemaPattern != null && !schemaPattern.isEmpty())
-            throw new SQLFeatureNotSupportedException("SQLite does not support schemas");
+        if (schemaPattern != null && !schemaPattern.isEmpty()) {
+            throw new SQLFeatureNotSupportedException("SQLite does not support schemas", "0A000");
+        }
 
         if (catalog == null || catalog.isEmpty())
             catalog = "main";
@@ -693,14 +717,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             types = DEFAULT_TABLE_TYPES;
         }
 
-        String sql = Sqlite3.mprintf(
-                "SELECT ? as TABLE_CAT, null as TABLE_SCHEM, name as TABLE_NAME, " +
-                        "upper(type) as TABLE_TYPE, sql as REMARKS, null as TYPE_CAT, " +
-                        "null as TYPE_SCHEM, null as TYPE_NAME, " +
-                        "\"row_id\" as SELF_REFERENCING_COL_NAME, " +
-                        "\"SYSTEM\" as REF_GENERATION FROM %Q.sqlite_master " +
-                        "WHERE name LIKE ? and upper(type) in (%s) " +
-                        "ORDER BY TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME",
+        String sql = Sqlite3.mprintf(GET_TABLES_TEMPLATE,
                 catalog,
                 Sqlite3.join(Collections.nCopies(types.length, "?").toArray(), ", "));
 
@@ -781,15 +798,6 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                         "SELECT 'VIEW' as TABLE_TYPE");
     }
 
-    private static final String COLUMN_QUERY =
-            "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME, " +
-                    "? AS COLUMN_NAME, ? AS DATA_TYPE, ? AS TYPE_NAME, ? AS COLUMN_SIZE, " +
-                    "null AS BUFFER_LENGTH, ? AS DECIMAL_DIGITS, 10 AS NUM_PREC_RADIX, " +
-                    "? AS NULLABLE, '' AS REMARKS, ? AS COLUMN_DEF, null AS SQL_DATA_TYPE, " +
-                    "null AS SQL_DATETIME_SUB, ? AS ORDINAL_POSITION, ? AS IS_NULLABLE, " +
-                    "null AS SCOPE_CATALOG, null AS SCOPE_SCHEMA, null AS SCOPE_TABLE, " +
-                    "null AS SOURCE_DATA_TYPE, ? AS IS_AUTOINCREMENT, ? AS IS_GENERATEDCOLUMN ";
-
     @Override
     public ResultSet getColumns(String catalog,
                                 String schemaPattern,
@@ -860,10 +868,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         for (int lpc = 0; lpc < columnList.size(); lpc++) {
             if (!constantQuery.isEmpty())
                 constantQuery += " UNION ALL ";
-            constantQuery += COLUMN_QUERY;
+            constantQuery += GET_COLUMNS_TEMPLATE;
         }
         if (constantQuery.isEmpty()) {
-            constantQuery = COLUMN_QUERY;
+            constantQuery = GET_COLUMNS_TEMPLATE;
             limit = " LIMIT 0";
         }
         constantQuery += " ORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION";
@@ -896,20 +904,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getColumnPrivileges(String s, String s2, String s3, String s4) throws SQLException {
-        return this.executeConstantQuery(
-                "SELECT NULL AS TABLE_CAT, NULL AS TABLE_SCHEM, NULL AS TABLE_NAME, " +
-                        "NULL AS COLUMN_NAME, NULL AS GRANTOR, NULL AS GRANTEE, " +
-                        "NULL AS PRIVILEGE, NULL AS IS_GRANTABLE LIMIT 0"
-        );
+        return this.executeConstantQuery(GET_COLUMN_PRIVILEGES_TEMPLATE);
     }
 
     @Override
     public ResultSet getTablePrivileges(String s, String s2, String s3) throws SQLException {
-        return this.executeConstantQuery(
-                "SELECT NULL AS TABLE_CAT, NULL AS TABLE_SCHEM, NULL AS TABLE_NAME, " +
-                        "NULL AS GRANTOR, NULL AS GRANTEE, " +
-                        "NULL AS PRIVILEGE, NULL AS IS_GRANTABLE LIMIT 0"
-        );
+        return this.executeConstantQuery(GET_TABLE_PRIVILEGES_TEMPLATE);
     }
 
     @Override
@@ -921,10 +921,6 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     public ResultSet getVersionColumns(String s, String s2, String s3) throws SQLException {
         return null;  //To change body of implemented methods use File | Settings | File Templates.
     }
-
-    private static final String PRIMARY_KEY_QUERY =
-            "SELECT ? AS TABLE_CAT, null AS TABLE_SCHEM, ? AS TABLE_NAME, ? AS COLUMN_NAME, " +
-                    "? AS KEY_SEQ, null AS PK_NAME ";
 
     @Override
     public ResultSet getPrimaryKeys(String catalog, String schema, String tableName) throws SQLException {
@@ -961,10 +957,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         for (int lpc = 0; lpc < columnList.size(); lpc++) {
             if (!constantQuery.isEmpty())
                 constantQuery += " UNION ALL ";
-            constantQuery += PRIMARY_KEY_QUERY;
+            constantQuery += GET_PRIMARY_KEY_TEMPLATE;
         }
         if (constantQuery.isEmpty()) {
-            constantQuery = PRIMARY_KEY_QUERY;
+            constantQuery = GET_PRIMARY_KEY_TEMPLATE;
             limit = " LIMIT 0";
         }
         constantQuery += " ORDER BY COLUMN_NAME";
@@ -1099,12 +1095,6 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         return table2Key;
     }
 
-    private static final String FOREIGN_KEY_QUERY = "SELECT ? AS PKTABLE_CAT, " +
-            "NULL AS PKTABLE_SCHEM, ? AS PKTABLE_NAME, " +
-            "? AS PKCOLUMN_NAME, ? AS FKTABLE_CAT, NULL AS FKTABLE_SCHEM, " +
-            "? AS FKTABLE_NAME, ? AS FKCOLUMN_NAME, ? AS KEY_SEQ, ? AS UPDATE_RULE, " +
-            "? AS DELETE_RULE, NULL AS FK_NAME, NULL AS PK_NAME, ? AS DEFERRABILITY ";
-
     private ResultSet getForeignKeys(String catalog, String fromTable, String toTable) throws SQLException {
         Map<String, List<ForeignKeyData>> table2Key = getForeignKeyData(catalog);
         List<ForeignKeyData> columnList = new ArrayList<ForeignKeyData>();
@@ -1127,10 +1117,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
             if (!constantQuery.isEmpty())
                 constantQuery += " UNION ALL ";
-            constantQuery += FOREIGN_KEY_QUERY;
+            constantQuery += GET_FOREIGN_KEY_TEMPLATE;
         }
         if (constantQuery.isEmpty()) {
-            constantQuery = FOREIGN_KEY_QUERY;
+            constantQuery = GET_FOREIGN_KEY_TEMPLATE;
             limit = " LIMIT 0";
         }
         constantQuery += " ORDER BY PKTABLE_CAT, PKTABLE_SCHEM, PKTABLE_NAME, KEY_SEQ";
@@ -1187,21 +1177,15 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                                        String foreignCatalog,
                                        String foreignSchema,
                                        String foreignTable) throws SQLException {
-        if (parentCatalog != foreignCatalog)
-            throw new SQLNonTransientException("Catalog names must be the same");
+        if (parentCatalog != foreignCatalog) {
+            throw new SQLNonTransientException("Catalog names must be the same", "42000");
+        }
 
         return this.getForeignKeys(parentCatalog, foreignTable, parentTable);
     }
 
     @Override
     public ResultSet getTypeInfo() throws SQLException {
-        Map<String, Integer> TYPE_MAP = new LinkedHashMap<String, Integer>();
-        TYPE_MAP.put("NULL", Types.NULL);
-        TYPE_MAP.put("INTEGER", Types.INTEGER);
-        TYPE_MAP.put("REAL", Types.REAL);
-        TYPE_MAP.put("TEXT", Types.VARCHAR);
-        TYPE_MAP.put("BLOB", Types.BLOB);
-        
         /**
          * Each type description has the following columns:
             TYPE_NAME String => Type name
@@ -1237,12 +1221,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                 sb.append(union);
             }
 
-            sb.append("SELECT '").append(entry.getKey()).append("' AS TYPE_NAME, ").append(entry.getValue()).append(" AS DATA_TYPE,");
-            sb.append("0 AS PRECISION, null as LITERAL_PREFIX, null as LITERAL_SUFFIX, null as CREATE_PARAMS, "); 
-            sb.append("'typeNullable' as NULLABLE, 1 as CASE_SENSITIVE, 'typeSearchable' as SEARCHABLE, ");
-            sb.append("0 as UNSIGNED_ATTRIBUTE, 0 as FIXED_PREC_SCALE, 0 as AUTO_INCREMENT, null as LOCAL_TYPE_NAME, ");
-            sb.append("0 as MINIMUM_SCALE, 0 as MAXIMUM_SCALE,");
-            sb.append("0 as SQL_DATA_TYPE, 0 as SQL_DATETIME_SUB, 10 as NUM_PREC_RADIX");
+            sb.append(String.format(TYPE_INFO_TEMPLATE, entry.getKey(), entry.getValue()));
         }
         sb.append(" ORDER BY DATA_TYPE");
         String sql = sb.toString();
@@ -1316,11 +1295,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getUDTs(String s, String s2, String s3, int[] ints) throws SQLException {
-        return this.executeConstantQuery(
-                "SELECT null as TYPE_CAT, null as TYPE_SCHEM, null as TYPE_NAME, " +
-                        "null as CLASS_NAME, null as DATA_TYPE, null as REMARKS, null as BASE_TYPE " +
-                        "LIMIT 0"
-        );
+        return this.executeConstantQuery(GET_UDTS_TEMPLATE);
     }
 
     @Override
@@ -1360,16 +1335,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getAttributes(String s, String s2, String s3, String s4) throws SQLException {
-        return this.executeConstantQuery(
-                "SELECT null as TYPE_CAT, NULL AS TYPE_SCHEM, NULL AS TYPE_NAME, " +
-                        "NULL AS ATTR_NAME, NULL AS DATA_TYPE, NULL AS ATTR_TYPE_NAME, " +
-                        "NULL AS ATTR_SIZE, NULL AS DECIMAL_DIGITS, NULL AS NUM_PREC_RADIX, " +
-                        "NULL AS NULLABLE, NULL AS REMARKS, NULL AS ATTR_DEF, " +
-                        "NULL AS SQL_DATA_TYPE, NULL AS SQL_DATETIME_SUB, " +
-                        "NULL AS CHAR_OCTET_LENGTH, NULL AS ORDINAL_POSITION, " +
-                        "NULL AS IS_NULLABLE, NULL AS SCOPE_CATALOG, NULL AS SCOPE_SCHEMA, " +
-                        "NULL AS SCOPE_TABLE, NULL AS SOURCE_DATA_TYPE LIMIT 0"
-        );
+        return this.executeConstantQuery(GET_ATTRIBUTES_TEMPLATE);
     }
 
     @Override
@@ -1443,8 +1409,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getClientInfoProperties() throws SQLException {
-        return this.executeConstantQuery(
-                "SELECT '' AS NAME, 0 as MAX_LEN, '' as DEFAULT_VALUE, '' as DESCRIPTION LIMIT 0");
+        return this.executeConstantQuery(GET_CLIENT_INFO_PROPERTIES_TEMPLATE);
     }
 
     @Override

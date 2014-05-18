@@ -123,7 +123,7 @@ public class SqliteCommon {
     }
 
     public <T> T unwrap(Class<T> tClass) throws SQLException {
-        throw new SQLNonTransientException("No object implements the given class");
+        throw new SQLNonTransientException("No object implements the given class", "42000");
     }
 
     public boolean isWrapperFor(Class<?> aClass) throws SQLException {

@@ -144,30 +144,34 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     void requireOpened() throws SQLException {
         if (this.isClosed()) {
-            throw new SQLNonTransientException("Database is closed for business");
+            throw new SQLNonTransientException("Database is closed for business", "08000");
         }
     }
 
     void requireNoTransaction() throws SQLException {
         if (!this.getAutoCommit()) {
-            throw new SQLNonTransientException("Operation cannot be performed in the middle of a transaction");
+            throw new SQLNonTransientException("Operation cannot be performed in the middle of a transaction",
+                    "25000");
         }
     }
 
     private void requireTransaction() throws SQLException {
         if (this.getAutoCommit()) {
-            throw new SQLNonTransientException("Operation cannot be performed while in auto-commit mode");
+            throw new SQLNonTransientException("Operation cannot be performed while in auto-commit mode",
+                    "25000");
         }
     }
 
     void requireResultSetType(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException {
         if (resultSetType != ResultSet.TYPE_FORWARD_ONLY)
-            this.addWarning(new SQLWarning("SQLite only supports TYPE_FORWARD_ONLY result sets"));
+            this.addWarning(new SQLWarning("SQLite only supports TYPE_FORWARD_ONLY result sets",
+                    "01000"));
         if (resultSetConcurrency != ResultSet.CONCUR_READ_ONLY)
-            this.addWarning(new SQLWarning("SQLite only supports CONCUR_READ_ONLY result sets"));
+            this.addWarning(new SQLWarning("SQLite only supports CONCUR_READ_ONLY result sets",
+                    "01000"));
         if (resultSetHoldability != ResultSet.CLOSE_CURSORS_AT_COMMIT)
-            this.addWarning(new SQLWarning("SQLite only supports CLOSE_CURSORS_AT_COMMIT result sets"));
+            this.addWarning(new SQLWarning("SQLite only supports CLOSE_CURSORS_AT_COMMIT result sets", "01000"));
     }
 
     void executeCanned(String sql) throws SQLException {
@@ -190,7 +194,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         requireOpened();
 
         if (callback == null)
-            throw new SQLNonTransientException("Callback cannot be null");
+            throw new SQLNonTransientException("Callback cannot be null", "XX000");
 
         callback.setOther(this.callback);
         this.callback = callback;
@@ -205,7 +209,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         requireOpened();
 
         if (this.callback == null)
-            throw new SQLNonTransientException("Callback stack is empty");
+            throw new SQLNonTransientException("Callback stack is empty", "XX000");
 
         this.callback = this.callback.getOther();
         Sqlite3.sqlite3_progress_handler(
@@ -252,7 +256,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public CallableStatement prepareCall(String s) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support stored procedures");
+        throw new SQLFeatureNotSupportedException("SQLite does not support stored procedures",
+                "0A000");
     }
 
     @Override
@@ -396,7 +401,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
                 break;
             default:
                 throw new SQLFeatureNotSupportedException(
-                        "SQLite only supports TRANSACTION_SERIALIZABLE and TRANSACTION_READ_UNCOMMITTED");
+                        "SQLite only supports TRANSACTION_SERIALIZABLE and TRANSACTION_READ_UNCOMMITTED",
+                        "0A000");
         }
     }
 
@@ -438,12 +444,14 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public Map<String, Class<?>> getTypeMap() throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support user-defined types");
+        throw new SQLFeatureNotSupportedException("SQLite does not support user-defined types",
+                "0A000");
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> stringClassMap) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support user-defined types");
+        throw new SQLFeatureNotSupportedException("SQLite does not support user-defined types",
+                "0A000");
     }
 
     @Override
@@ -451,7 +459,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         requireOpened();
 
         if (i != ResultSet.CLOSE_CURSORS_AT_COMMIT)
-            throw new SQLFeatureNotSupportedException("SQLite only supports CLOSE_CURSORS_AT_COMMIT");
+            throw new SQLFeatureNotSupportedException("SQLite only supports CLOSE_CURSORS_AT_COMMIT",
+                    "0A000");
     }
 
     @Override
@@ -542,19 +551,22 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     @Override
     public PreparedStatement prepareStatement(String s, int autoGeneratedKeys) throws SQLException {
         if (autoGeneratedKeys == Statement.RETURN_GENERATED_KEYS)
-            throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
+            throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys",
+                    "0A000");
 
         return this.prepareStatement(s);
     }
 
     @Override
     public PreparedStatement prepareStatement(String s, int[] columnIndexes) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys",
+                "0A000");
     }
 
     @Override
     public PreparedStatement prepareStatement(String s, String[] strings) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys");
+        throw new SQLFeatureNotSupportedException("SQLite does not support returning generated keys",
+                "0A000");
     }
 
     @Override
@@ -576,7 +588,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public SQLXML createSQLXML() throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support SQLXML");
+        throw new SQLFeatureNotSupportedException("SQLite does not support SQLXML", "0A000");
     }
 
     @Override
@@ -589,7 +601,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         try {
             requireOpened();
 
-            throw new SQLFeatureNotSupportedException("SQLite does not support client info");
+            throw new SQLFeatureNotSupportedException("SQLite does not support client info",
+                    "0A000");
         }
         catch (SQLException e) {
             throw new SQLClientInfoException(
@@ -603,7 +616,8 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         try {
             requireOpened();
 
-            throw new SQLFeatureNotSupportedException("SQLite does not support client info");
+            throw new SQLFeatureNotSupportedException("SQLite does not support client info",
+                    "0A000");
         }
         catch (SQLException e) {
             Map<String, ClientInfoStatus> map = new HashMap<String, ClientInfoStatus>();
@@ -631,12 +645,12 @@ public class SqliteConnection extends SqliteCommon implements Connection {
 
     @Override
     public Array createArrayOf(String s, Object[] objects) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support arrays");
+        throw new SQLFeatureNotSupportedException("SQLite does not support arrays", "0A000");
     }
 
     @Override
     public Struct createStruct(String s, Object[] objects) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support structs");
+        throw new SQLFeatureNotSupportedException("SQLite does not support structs", "0A000");
     }
 
     public void setSchema(String schema) throws SQLException {
@@ -665,11 +679,11 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     }
 
     public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite is a local-only database");
+        throw new SQLFeatureNotSupportedException("SQLite is a local-only database", "0A000");
     }
 
     public int getNetworkTimeout() throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite is a local-only database");
+        throw new SQLFeatureNotSupportedException("SQLite is a local-only database", "0A000");
     }
 
     @Override

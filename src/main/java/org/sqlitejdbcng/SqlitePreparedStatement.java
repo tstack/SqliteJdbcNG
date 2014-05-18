@@ -150,7 +150,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 }
                 default:
                     throw new SQLException("Internal error: unhandled SQL value -- (" +
-                            types[lpc] + ") " + values[lpc]);
+                            types[lpc] + ") " + values[lpc], "XX000");
             }
             Sqlite3.checkOk(rc, this.conn.getHandle());
         }
@@ -158,7 +158,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void addBatch(String s) throws SQLException {
-        throw new SQLNonTransientException("This operation is not supported on prepared statements");
+        throw new SQLNonTransientException("This operation is not supported on prepared statements", "42000");
     }
 
     @Override
@@ -172,6 +172,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
     public int[] executeBatch() throws SQLException {
         Pair[] batchCopy = this.batchParamList.toArray(new Pair[this.batchList.size()]);
         int[] retval = new int[batchCopy.length];
+        SQLException lastException = null;
         int index = 0;
 
         this.batchParamList.clear();
@@ -184,9 +185,16 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 retval[index] = this.lastUpdateCount;
             }
             catch (SQLException e) {
-                throw new BatchUpdateException(e);
+                retval[index] = EXECUTE_FAILED;
+                e.setNextException(lastException);
+                lastException = e;
             }
             index += 1;
+        }
+
+        if (lastException != null) {
+            throw new BatchUpdateException(lastException.getMessage(), lastException.getSQLState(),
+                    lastException.getErrorCode(), retval, lastException);
         }
 
         return retval;
@@ -194,17 +202,17 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public ResultSet executeQuery(String s) throws SQLException {
-        throw new SQLNonTransientException("Use the no-argument version of executeQuery() to execute a prepared statement");
+        throw new SQLNonTransientException("Use the no-argument version of executeQuery() to execute a prepared statement", "42000");
     }
 
     @Override
     public int executeUpdate(String s) throws SQLException {
-        throw new SQLNonTransientException("Use the no-argument version of executeUpdate() to execute a prepared statement");
+        throw new SQLNonTransientException("Use the no-argument version of executeUpdate() to execute a prepared statement", "42000");
     }
 
     @Override
     public boolean execute(String s) throws SQLException {
-        throw new SQLNonTransientException("Use the no-argument version of execute() to execute a prepared statement");
+        throw new SQLNonTransientException("Use the no-argument version of execute() to execute a prepared statement", "42000");
     }
 
     @Override
@@ -214,7 +222,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         this.clearWarnings();
 
         if (Sqlite3.sqlite3_column_count(this.stmt) == 0) {
-            throw new SQLNonTransientException("SQL statement is not a query, use executeUpdate()");
+            throw new SQLNonTransientException("SQL statement is not a query, use executeUpdate()", "42000");
         }
 
         this.bindParameters(this.paramValues, this.paramTypes);
@@ -379,7 +387,9 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
         else if (o instanceof InputStream)
             typeCode = Types.BLOB;
         else
-            throw new SQLFeatureNotSupportedException("");
+            throw new SQLFeatureNotSupportedException(
+                    String.format("Conversion of object is not supported: %s", o.getClass()),
+                    "0A000");
 
         this.setObject(i, o, typeCode);
     }
@@ -402,7 +412,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 cb = this.timeoutCallback.setExpiration(this.getQueryTimeout() * 1000);
                 rc = Sqlite3.sqlite3_step(stmt.getPeer());
                 if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
-                    throw new SQLTimeoutException("Query timeout reached");
+                    throw new SQLTimeoutException("Query timeout reached", "57000");
                 }
             } finally {
                 closeQuietly(cb);
@@ -420,7 +430,12 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             this.replaceResultSet(null);
         }
 
-        this.lastUpdateCount = Sqlite3.sqlite3_changes(this.conn.getHandle());
+        if (this.lastResult != null) {
+            this.lastUpdateCount = SUCCESS_NO_INFO;
+        }
+        else {
+            this.lastUpdateCount = Sqlite3.sqlite3_changes(this.conn.getHandle());
+        }
 
         return this.lastResult != null;
     }
@@ -440,7 +455,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setRef(int i, Ref ref) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support REF values");
+        throw new SQLFeatureNotSupportedException("SQLite does not support REF values", "0A000");
     }
 
     @Override
@@ -455,7 +470,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
 
     @Override
     public void setArray(int i, Array array) throws SQLException {
-        throw new SQLFeatureNotSupportedException("SQLite does not support SQL arrays");
+        throw new SQLFeatureNotSupportedException("SQLite does not support SQL arrays", "0A000");
     }
 
     @Override
@@ -592,15 +607,18 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             case Types.REF:
             case Types.SQLXML:
             case Types.STRUCT:
-                throw new SQLFeatureNotSupportedException("SQLite does not support the given type");
+                throw new SQLFeatureNotSupportedException("SQLite does not support the given type", "0A000");
             case Types.NULL:
                 this.paramValues[i - 1] = null;
                 break;
             case Types.BIGINT:
-                if (o instanceof Number)
+                if (o instanceof Number) {
                     this.paramValues[i - 1] = o;
-                else
-                    throw new SQLNonTransientException("Conversion to long not supported for value -- " + o);
+                }
+                else {
+                    throw new SQLNonTransientException(
+                            "Conversion to BIGINT not supported for value -- " + o, "22000");
+                }
                 break;
             case Types.BLOB:
             case Types.BINARY:
@@ -614,7 +632,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                     targetSqlType = Types.BLOB;
                 }
                 else
-                    throw new SQLNonTransientException("Conversion to long not supported for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to BLOB not supported for value -- " + o, "22000");
                 break;
             case Types.BIT:
             case Types.BOOLEAN:
@@ -625,7 +644,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 else if (o instanceof Number)
                     this.paramValues[i - 1] = o;
                 else
-                    throw new SQLNonTransientException("Conversion to boolean not supported for value -- " + o);
+                    throw new SQLNonTransientException("Conversion to boolean not supported for value -- " + o, "22000");
                 break;
             case Types.CHAR:
                 if (o instanceof Character) {
@@ -633,19 +652,22 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                     targetSqlType = Types.VARCHAR;
                 }
                 else
-                    throw new SQLNonTransientException("Conversion to boolean not supported for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to CHAR not supported for value -- " + o, "22000");
                 break;
             case Types.CLOB:
                 if (o instanceof Clob)
                     this.paramValues[i - 1] = o;
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to CLOB not support for value -- " + o, "22000");
                 break;
             case Types.DATE:
                 if (o instanceof Date)
                     this.setDate(i, (Date)o);
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to DATE not support for value -- " + o, "22000");
                 break;
             case Types.DECIMAL:
                 if (o instanceof BigDecimal) {
@@ -657,27 +679,31 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                     targetSqlType = Types.BIGINT;
                 }
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to DECIMAL not support for value -- " + o, "22000");
                 break;
             case Types.FLOAT:
                 if (o instanceof Number)
                     this.paramValues[i - 1] = o;
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to FLOAT not support for value -- " + o, "22000");
                 break;
             case Types.REAL:
             case Types.DOUBLE:
                 if (o instanceof Number)
                     this.paramValues[i - 1] = o;
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to REAL not support for value -- " + o, "22000");
                 break;
             case Types.INTEGER:
             case Types.TINYINT:
                 if (o instanceof Number)
                     this.paramValues[i - 1] = o;
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to INTEGER not support for value -- " + o, "22000");
                 break;
             case Types.NUMERIC:
                 this.paramValues[i - 1] = o.toString();
@@ -687,7 +713,8 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 if (o instanceof Time)
                     this.setTime(i, (Time)o);
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to TIME not support for value -- " + o, "22000");
                 break;
             case Types.TIMESTAMP:
                 if (o instanceof Timestamp)
@@ -695,13 +722,14 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                 else if (o instanceof Date)
                     this.setTimestamp(i, new Timestamp(((Date)o).getTime()));
                 else
-                    throw new SQLNonTransientException("Conversion to long not support for value -- " + o);
+                    throw new SQLNonTransientException(
+                            "Conversion to TIMESTAMP not support for value -- " + o, "22000");
                 break;
             case Types.VARCHAR:
                 this.paramValues[i - 1] = o.toString();
                 break;
             default:
-                throw new SQLFeatureNotSupportedException("SQLite does not support the given type");
+                throw new SQLFeatureNotSupportedException("SQLite does not support the given type", "0A000");
         }
         this.paramTypes[i - 1] = targetSqlType;
     }

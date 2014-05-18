@@ -407,6 +407,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
     public int[] executeBatch() throws SQLException {
         String[] batchCopy = this.batchList.toArray(new String[this.batchList.size()]);
         int[] retval = new int[batchCopy.length];
+        SQLException lastException = null;
         int index = 0;
 
         this.batchList.clear();
@@ -433,9 +434,16 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                 }
             }
             catch (SQLException e) {
-                throw new BatchUpdateException(e);
+                e.setNextException(lastException);
+                lastException = e;
+                retval[index] = EXECUTE_FAILED;
             }
             index += 1;
+        }
+
+        if (lastException != null) {
+            throw new BatchUpdateException(lastException.getMessage(), lastException.getSQLState(),
+                    lastException.getErrorCode(), retval, lastException);
         }
 
         return retval;
