@@ -390,8 +390,9 @@ public class Sqlite3 {
         boolean first = true;
 
         for (Object elem : elems) {
-            if (!first)
+            if (!first) {
                 builder.append(sep);
+            }
             builder.append(elem.toString());
             first = false;
         }

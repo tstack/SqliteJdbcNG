@@ -1,0 +1,7 @@
+SELECT null AS TYPE_CAT,
+    null AS TYPE_SCHEM,
+    null AS TYPE_NAME,
+    null AS SUPERTYPE_CAT,
+    null AS SUPERTYPE_SCHEM,
+    null AS SUPERTYPE_NAME
+    LIMIT 0

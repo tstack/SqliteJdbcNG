@@ -55,9 +55,11 @@ public class SqliteTestHelper {
         this.sqliteConnection = (SqliteConnection)this.conn;
         try (Statement stmt = this.conn.createStatement()) {
             stmt.executeUpdate("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)");
+            stmt.executeUpdate("CREATE INDEX test_index ON test_table (id, name)");
             stmt.executeUpdate("INSERT INTO test_table VALUES (1, 'test')");
 
-            stmt.executeUpdate("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL(10,2))");
+            stmt.executeUpdate("CREATE TABLE type_table (name VARCHAR PRIMARY KEY, " +
+                    "birthdate DATETIME UNIQUE, height REAL, eyes INTEGER, width DECIMAL(10,2))");
             stmt.executeUpdate("CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)");
         }
     }

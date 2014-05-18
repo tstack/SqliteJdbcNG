@@ -1,0 +1,5 @@
+SELECT null AS TABLE_CAT,
+    null AS TABLE_SCHEM,
+    null AS TABLE_NAME,
+    null AS SUPERTABLE_NAME
+    LIMIT 0

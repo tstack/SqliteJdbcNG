@@ -89,6 +89,50 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
         assertTrue(dmd.getDatabaseProductVersion().matches("\\d+\\.\\d+\\.\\d+(\\.\\d+)?"));
     }
 
+    private static final String GET_PROCEDURES_HEADER =
+            "|PROCEDURE_CAT|PROCEDURE_SCHEM|PROCEDURE_NAME|RES1|RES2|RES3|REMARKS|PROCEDURE_TYPE|SPECIFIC_NAME|";
+    private static final String[] EMPTY_RESULT_SET = {};
+
+    @Test
+    public void testGetProcedures() throws Exception {
+        DatabaseMetaData dmd = this.conn.getMetaData();
+
+        try (ResultSet rs = dmd.getProcedures(null, null, null)) {
+            assertEquals(GET_PROCEDURES_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(EMPTY_RESULT_SET, this.formatResultSet(rs));
+        }
+    }
+
+    private static final String GET_PROCEDURE_COLUMNS_HEADER =
+            "|PROCEDURE_CAT|PROCEDURE_SCHEM|PROCEDURE_NAME|COLUMN_NAME|COLUMN_TYPE|DATA_TYPE|TYPE_NAME|PRECISION|LENGTH|SCALE|RADIX|NULLABLE|REMARKS|COLUMN_DEF|SQL_DATA_TYPE|SQL_DATETIME_SUB|CHAR_OCTET_LENGTH|ORDINAL_POSITION|IS_NULLABLE|SPECIFIC_NAME|";
+
+    @Test
+    public void testGetProcedureColumns() throws Exception {
+        DatabaseMetaData dmd = this.conn.getMetaData();
+
+        try (ResultSet rs = dmd.getProcedureColumns(null, null, null, null)) {
+            assertEquals(GET_PROCEDURE_COLUMNS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(EMPTY_RESULT_SET, this.formatResultSet(rs));
+        }
+    }
+
+    private static final String GET_SCHEMAS_HEADER =
+            "|TABLE_SCHEM|TABLE_CATALOG|";
+
+    @Test
+    public void testGetSchemas() throws Exception {
+        DatabaseMetaData dmd = this.conn.getMetaData();
+
+        try (ResultSet rs = dmd.getSchemas()) {
+            assertEquals(GET_SCHEMAS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(EMPTY_RESULT_SET, this.formatResultSet(rs));
+        }
+        try (ResultSet rs = dmd.getSchemas(null, null)) {
+            assertEquals(GET_SCHEMAS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(EMPTY_RESULT_SET, this.formatResultSet(rs));
+        }
+    }
+
     @Test
     public void testGetCatalogs() throws Exception {
         DatabaseMetaData dmd = this.conn.getMetaData();
@@ -121,7 +165,9 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
     private static final String[] TABLE_DUMPS = {
             "|main|null|prim_table|TABLE|CREATE TABLE prim_table (id INTEGER PRIMARY KEY, b BOOLEAN, bi BIGINT, f FLOAT, d DOUBLE)|null|null|null|row_id|SYSTEM|",
             "|main|null|test_table|TABLE|CREATE TABLE test_table (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL)|null|null|null|row_id|SYSTEM|",
-            "|main|null|type_table|TABLE|CREATE TABLE type_table (name VARCHAR PRIMARY KEY, birthdate DATETIME, height REAL, eyes INTEGER, width DECIMAL(10,2))|null|null|null|row_id|SYSTEM|",
+            "|main|null|type_table|TABLE|CREATE TABLE type_table (name VARCHAR PRIMARY KEY, " +
+                    "birthdate DATETIME UNIQUE, height REAL, eyes INTEGER, width DECIMAL(10," +
+                    "2))|null|null|null|row_id|SYSTEM|",
     };
 
     @Test
@@ -202,6 +248,33 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
 
             assertEquals(PK_DUMP_HEADER, this.formatResultSetHeader(rsm));
             assertArrayEquals(new String[0], this.formatResultSet(rs));
+        }
+    }
+
+    private static final String INDEX_INFO_HEADER =
+            "|TABLE_CAT|TABLE_SCHEM|TABLE_NAME|NON_UNIQUE|TABLE_QUALIFIER|INDEX_NAME|TYPE|ORDINAL_POSITION|COLUMN_NAME|ASC_OR_DESC|CARDINALITY|PAGES|FILTER_CONDITION|";
+    private static final String[] INDEX_INFO_TEST_DUMP = {
+            "|main|null|test_table|1|main|test_index|3|0|id|null|0|0|null|",
+            "|main|null|test_table|1|main|test_index|3|1|name|null|0|0|null|",
+    };
+    private static final String[] INDEX_INFO_TYPE_DUMP = {
+            "|main|null|type_table|0|main|sqlite_autoindex_type_table_1|3|0|name|null|0|0|null|",
+            "|main|null|type_table|0|main|sqlite_autoindex_type_table_2|3|0|birthdate|null|0|0|null|",
+    };
+
+    @Test
+    public void testGetIndexInfo() throws Exception {
+        try (ResultSet rs = this.dbMetadata.getIndexInfo(null, null, "test_table", false, true)) {
+            assertEquals(INDEX_INFO_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(INDEX_INFO_TEST_DUMP, this.formatResultSet(rs));
+        }
+        try (ResultSet rs = this.dbMetadata.getIndexInfo(null, null, "test_table", true, true)) {
+            assertEquals(INDEX_INFO_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(EMPTY_RESULT_SET, this.formatResultSet(rs));
+        }
+        try (ResultSet rs = this.dbMetadata.getIndexInfo(null, null, "type_table", false, true)) {
+            assertEquals(INDEX_INFO_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(INDEX_INFO_TYPE_DUMP, this.formatResultSet(rs));
         }
     }
 

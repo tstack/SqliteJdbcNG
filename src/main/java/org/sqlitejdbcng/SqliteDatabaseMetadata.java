@@ -42,6 +42,8 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             SQLTemplate.readTemplate("/metadata-get-procedure-columns.sql");
     private static final String TYPE_INFO_TEMPLATE =
             SQLTemplate.readTemplate("/metadata-type-info.sql");
+    private static final String GET_INDEX_INFO_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-index-info.sql");
     private static final String GET_TABLES_TEMPLATE =
             SQLTemplate.readTemplate("/metadata-get-tables.sql");
     private static final String GET_COLUMNS_TEMPLATE =
@@ -60,6 +62,10 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             SQLTemplate.readTemplate("/metadata-get-attributes.sql");
     private static final String GET_CLIENT_INFO_PROPERTIES_TEMPLATE =
             SQLTemplate.readTemplate("/metadata-get-client-info-properties.sql");
+    private static final String GET_SUPER_TYPES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-super-types.sql");
+    private static final String GET_SUPER_TABLES_TEMPLATE =
+            SQLTemplate.readTemplate("/metadata-get-super-tables.sql");
 
     private static final Map<String, Integer> TYPE_MAP = new LinkedHashMap<String, Integer>() {{
         put("NULL", Types.NULL);
@@ -710,8 +716,9 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             throw new SQLFeatureNotSupportedException("SQLite does not support schemas", "0A000");
         }
 
-        if (catalog == null || catalog.isEmpty())
+        if (catalog == null || catalog.isEmpty()) {
             catalog = "main";
+        }
 
         if (types == null) {
             types = DEFAULT_TABLE_TYPES;
@@ -1228,9 +1235,91 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         return executeConstantQuery(sql);
     }
 
+    private static class IndexInfo {
+        String name;
+        boolean unique;
+        List<String> columnNames = new ArrayList<String>();
+
+        public IndexInfo(String name, boolean unique) {
+            this.name = name;
+            this.unique = unique;
+        }
+    }
+
     @Override
-    public ResultSet getIndexInfo(String s, String s2, String s3, boolean b, boolean b2) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public ResultSet getIndexInfo(String catalog, String schema, String tableName,
+            boolean unique, boolean approximate) throws SQLException {
+        Statement stmt = null;
+        ResultSet rs = null;
+
+        if (schema != null && !schema.isEmpty()) {
+            throw new SQLFeatureNotSupportedException("SQLite does not support schemas", "0A000");
+        }
+
+        if (catalog == null || catalog.isEmpty()) {
+            catalog = "main";
+        }
+
+        try {
+            List<IndexInfo> indexInfoList = new ArrayList<IndexInfo>();
+            stmt = this.conn.createStatement();
+
+            try {
+                int rows = 0;
+                rs = stmt.executeQuery(Sqlite3.mprintf("PRAGMA %Q.index_list(%Q)",
+                        catalog, tableName));
+                while (rs.next()) {
+                    if (unique && !rs.getBoolean(3)) {
+                        continue;
+                    }
+                    indexInfoList.add(new IndexInfo(rs.getString(2), rs.getBoolean(3)));
+                }
+
+                for (IndexInfo indexInfo : indexInfoList) {
+                    rs = stmt.executeQuery(Sqlite3.mprintf("PRAGMA %Q.index_info(%Q)",
+                            catalog, indexInfo.name));
+                    while (rs.next()) {
+                        indexInfo.columnNames.add(rs.getString(3));
+                    }
+                    rows += indexInfo.columnNames.size();
+                }
+
+                String constantQuery = Sqlite3.join(
+                        Collections.nCopies(rows, GET_INDEX_INFO_TEMPLATE).toArray(),
+                        " UNION ALL ");
+
+                if (constantQuery.isEmpty()) {
+                    constantQuery = String.format("%s LIMIT 0", GET_INDEX_INFO_TEMPLATE);
+                }
+                else {
+                    constantQuery += " ORDER BY NON_UNIQUE, TYPE, INDEX_NAME, ORDINAL_POSITION";
+                }
+
+                PreparedStatement ps = this.conn.prepareStatement(constantQuery);
+
+                ((SqlitePreparedStatement)ps).closeOnCompletion();
+
+                int index = 1;
+                for (IndexInfo indexInfo : indexInfoList) {
+                    for (int lpc = 0; lpc < indexInfo.columnNames.size(); lpc++) {
+                        ps.setString(index++, catalog);
+                        ps.setString(index++, tableName);
+                        ps.setBoolean(index++, !indexInfo.unique);
+                        ps.setString(index++, catalog);
+                        ps.setString(index++, indexInfo.name);
+                        ps.setInt(index++, tableIndexOther);
+                        ps.setInt(index++, lpc);
+                        ps.setString(index++, indexInfo.columnNames.get(lpc));
+                    }
+                }
+
+                return ps.executeQuery();
+            } finally {
+                SqliteCommon.closeQuietly(rs);
+            }
+        } finally {
+            SqliteCommon.closeQuietly(stmt);
+        }
     }
 
     @Override
@@ -1325,12 +1414,12 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getSuperTypes(String s, String s2, String s3) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(GET_SUPER_TYPES_TEMPLATE);
     }
 
     @Override
     public ResultSet getSuperTables(String s, String s2, String s3) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(GET_SUPER_TABLES_TEMPLATE);
     }
 
     @Override
@@ -1374,7 +1463,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public int getSQLStateType() throws SQLException {
-        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+        return sqlStateSQL;
     }
 
     @Override
@@ -1389,12 +1478,13 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public RowIdLifetime getRowIdLifetime() throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return RowIdLifetime.ROWID_VALID_FOREVER;
     }
 
     @Override
     public ResultSet getSchemas(String s, String s2) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+        return this.executeConstantQuery(
+                "SELECT null as TABLE_SCHEM, null as TABLE_CATALOG LIMIT 0");
     }
 
     @Override
