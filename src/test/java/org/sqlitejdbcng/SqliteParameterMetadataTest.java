@@ -30,8 +30,11 @@ import org.junit.Test;
 
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
+import java.sql.Types;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class SqliteParameterMetadataTest extends SqliteTestHelper {
     @Test
@@ -46,6 +49,23 @@ public class SqliteParameterMetadataTest extends SqliteTestHelper {
             ParameterMetaData pmd = ps.getParameterMetaData();
 
             assertEquals(1, pmd.getParameterCount());
+        }
+    }
+
+    @Test
+    public void testGetters() throws Exception {
+        try (PreparedStatement ps = this.conn.prepareStatement("SELECT * FROM test_table WHERE name = ?")) {
+            ParameterMetaData pmd = ps.getParameterMetaData();
+
+            assertEquals(ParameterMetaData.parameterNullable, pmd.isNullable(1));
+            assertEquals(true, pmd.isSigned(1));
+            assertTrue(pmd.getPrecision(1) > 0);
+            assertEquals(0, pmd.getScale(1));
+            assertEquals(Types.VARCHAR, pmd.getParameterType(1));
+            assertEquals("VARCHAR", pmd.getParameterTypeName(1));
+            assertEquals(String.class.getCanonicalName(), pmd.getParameterClassName(1));
+            assertEquals(ParameterMetaData.parameterModeIn, pmd.getParameterMode(1));
+            assertFalse(pmd.isWrapperFor(SqliteParameterMetadata.class));
         }
     }
 }

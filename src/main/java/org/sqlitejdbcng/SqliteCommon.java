@@ -28,11 +28,10 @@ package org.sqlitejdbcng;
 
 import org.sqlitejdbcng.internal.TimeoutProgressCallback;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLNonTransientException;
-import java.sql.SQLWarning;
-import java.sql.Statement;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -78,10 +77,31 @@ public class SqliteCommon {
         }
     };
 
+    public static void closeQuietly(InputStream is) {
+        try {
+            if (is != null) {
+                is.close();
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Unable to close input stream", e);
+        }
+    }
+
+    public static void closeQuietly(Reader reader) {
+        try {
+            if (reader != null) {
+                reader.close();
+            }
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Unable to close input stream", e);
+        }
+    }
+
     public static void closeQuietly(Statement stmt) {
         try {
-            if (stmt != null)
+            if (stmt != null) {
                 stmt.close();
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Unable to close statement", e);
         }
@@ -89,8 +109,9 @@ public class SqliteCommon {
 
     public static void closeQuietly(ResultSet rs) {
         try {
-            if (rs != null)
+            if (rs != null) {
                 rs.close();
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Unable to close statement", e);
         }
@@ -98,11 +119,22 @@ public class SqliteCommon {
 
     public static void closeQuietly(TimeoutProgressCallback cb) {
         try {
-            if (cb != null)
+            if (cb != null) {
                 cb.close();
+            }
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Unable to close statement", e);
         }
+    }
+
+    public static boolean stringEquals(String s1, String s2) {
+        if (s1 != null) {
+            return s1.equals(s2);
+        }
+        if (s2 == null) {
+            return true;
+        }
+        return false;
     }
 
     protected SQLWarning warnings;

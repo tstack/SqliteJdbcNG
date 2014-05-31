@@ -33,6 +33,17 @@ public class WeakRefWithEquals<T> extends WeakReference<T> {
 
     public WeakRefWithEquals(T object) { super(object); }
 
+    @Override
+    public int hashCode() {
+        Object val = get();
+
+        if (val != null) {
+            return val.hashCode();
+        }
+        return 0;
+    }
+
+    @Override
     public boolean equals(Object other) {
         if (other instanceof Reference) {
             return get() == ((Reference) other).get();

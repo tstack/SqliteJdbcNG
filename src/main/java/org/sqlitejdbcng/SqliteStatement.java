@@ -278,7 +278,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
                 int rc;
 
                 try {
-                    cb = this.timeoutCallback.setExpiration(this.getQueryTimeout() * 1000);
+                    cb = this.timeoutCallback.setExpiration(((long)this.getQueryTimeout()) * 1000L);
                     /*
                      * The sqlite3_changes() function reports the changes for
                      * last DML statement that was executed and not the last

@@ -40,8 +40,6 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             SQLTemplate.readTemplate("/metadata-get-procedures.sql");
     private static final String GET_PROCEDURE_COLUMNS_TEMPLATE =
             SQLTemplate.readTemplate("/metadata-get-procedure-columns.sql");
-    private static final String TYPE_INFO_TEMPLATE =
-            SQLTemplate.readTemplate("/metadata-type-info.sql");
     private static final String GET_INDEX_INFO_TEMPLATE =
             SQLTemplate.readTemplate("/metadata-get-index-info.sql");
     private static final String GET_TABLES_TEMPLATE =
@@ -66,14 +64,9 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
             SQLTemplate.readTemplate("/metadata-get-super-types.sql");
     private static final String GET_SUPER_TABLES_TEMPLATE =
             SQLTemplate.readTemplate("/metadata-get-super-tables.sql");
-
-    private static final Map<String, Integer> TYPE_MAP = new LinkedHashMap<String, Integer>() {{
-        put("NULL", Types.NULL);
-        put("INTEGER", Types.INTEGER);
-        put("REAL", Types.REAL);
-        put("TEXT", Types.VARCHAR);
-        put("BLOB", Types.BLOB);
-    }};
+    private static final String GET_FUNCTION_COLUMNS_TEMPALTE =
+            SQLTemplate.readTemplate("/metadata-get-function-columns.sql");
+    private static SqliteConnection METADATA_DATABASE_CONNECTION;
 
     static {
         SQLKeywords keywords = new SQLKeywords();
@@ -83,6 +76,44 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         sqliteList.removeAll(Arrays.asList(keywords.getSqlKeywords()));
 
         KEYWORD_LIST = Sqlite3.join(sqliteList.toArray(), ",");
+    }
+
+    private static synchronized SqliteConnection getMetadataDatabaseConnection() {
+        if (METADATA_DATABASE_CONNECTION == null) {
+            try {
+                METADATA_DATABASE_CONNECTION = new SqliteConnection("jdbc:sqlite::memory:",
+                        new Properties());
+                Statement stmt = null;
+                try {
+                    int maxLength = Sqlite3.sqlite3_limit(
+                            METADATA_DATABASE_CONNECTION.getHandle(),
+                            Sqlite3.Limit.SQLITE_LIMIT_LENGTH.value(), -1);
+                    String[][] FUNCTION_STATEMENTS = {
+                            SQLTemplate.readTemplateArray("/metadata-types.sql", maxLength),
+                            SQLTemplate.readTemplateArray("/metadata-functions.sql"),
+                    };
+                    stmt = METADATA_DATABASE_CONNECTION.createStatement();
+                    for (String[] stmtStrings : FUNCTION_STATEMENTS) {
+                        for (String stmtString : stmtStrings) {
+                            try {
+                                stmt.execute(stmtString);
+                            }
+                            catch (SQLException e) {
+                                throw new RuntimeException(String.format(
+                                        "Static statement failed: %s", stmtString), e);
+                            }
+                        }
+                    }
+                }
+                finally {
+                    SqliteCommon.closeQuietly(stmt);
+                }
+            }
+            catch (SQLException e) {
+                throw new RuntimeException("Unable to open metadata database", e);
+            }
+        }
+        return METADATA_DATABASE_CONNECTION;
     }
 
     private final SqliteConnection conn;
@@ -378,17 +409,17 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsOuterJoins() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public boolean supportsFullOuterJoins() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
     public boolean supportsLimitedOuterJoins() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
@@ -443,7 +474,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsCatalogsInDataManipulation() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
@@ -453,17 +484,17 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsCatalogsInTableDefinitions() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public boolean supportsCatalogsInIndexDefinitions() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
     public boolean supportsCatalogsInPrivilegeDefinitions() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
@@ -1135,29 +1166,35 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
         PreparedStatement ps = this.conn.prepareStatement(constantQuery);
 
-        ((SqlitePreparedStatement)ps).closeOnCompletion();
+        try {
+            ((SqlitePreparedStatement)ps).closeOnCompletion();
 
-        int index = 1;
+            int index = 1;
 
-        for (ForeignKeyData fkd : columnList) {
-            if (fromTable != null && !fromTable.equals(fkd.fromTable))
-                continue;
-            if (toTable != null && !toTable.equals(fkd.toTable))
-                continue;
+            for (ForeignKeyData fkd : columnList) {
+                if (fromTable != null && !fromTable.equals(fkd.fromTable))
+                    continue;
+                if (toTable != null && !toTable.equals(fkd.toTable))
+                    continue;
 
-            ps.setString(index++, catalog);
-            ps.setString(index++, fkd.toTable);
-            ps.setString(index++, fkd.toColumn);
-            ps.setString(index++, catalog);
-            ps.setString(index++, fkd.fromTable);
-            ps.setString(index++, fkd.fromColumn);
-            ps.setInt(index++, fkd.seq + 1);
-            ps.setInt(index++, fkd.onUpdate);
-            ps.setInt(index++, fkd.onDelete);
-            ps.setInt(index++, importedKeyInitiallyImmediate); // XXX
+                ps.setString(index++, catalog);
+                ps.setString(index++, fkd.toTable);
+                ps.setString(index++, fkd.toColumn);
+                ps.setString(index++, catalog);
+                ps.setString(index++, fkd.fromTable);
+                ps.setString(index++, fkd.fromColumn);
+                ps.setInt(index++, fkd.seq + 1);
+                ps.setInt(index++, fkd.onUpdate);
+                ps.setInt(index++, fkd.onDelete);
+                ps.setInt(index++, importedKeyInitiallyImmediate); // XXX
+            }
+
+            return ps.executeQuery();
         }
-
-        return ps.executeQuery();
+        catch (SQLException e) {
+            SqliteCommon.closeQuietly(ps);
+            throw e;
+        }
     }
 
     /**
@@ -1184,7 +1221,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
                                        String foreignCatalog,
                                        String foreignSchema,
                                        String foreignTable) throws SQLException {
-        if (parentCatalog != foreignCatalog) {
+        if (!SqliteCommon.stringEquals(parentCatalog, foreignCatalog)) {
             throw new SQLNonTransientException("Catalog names must be the same", "42000");
         }
 
@@ -1193,46 +1230,16 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getTypeInfo() throws SQLException {
-        /**
-         * Each type description has the following columns:
-            TYPE_NAME String => Type name
-            DATA_TYPE int => SQL data type from java.sql.Types
-            PRECISION int => maximum precision
-            LITERAL_PREFIX String => prefix used to quote a literal (may be null)
-            LITERAL_SUFFIX String => suffix used to quote a literal (may be null)
-            CREATE_PARAMS String => parameters used in creating the type (may be null)
-            NULLABLE short => can you use NULL for this type.
-            typeNoNulls - does not allow NULL values
-            typeNullable - allows NULL values
-            typeNullableUnknown - nullability unknown
-            CASE_SENSITIVE boolean=> is it case sensitive.
-            SEARCHABLE short => can you use "WHERE" based on this type:
-            typePredNone - No support
-            typePredChar - Only supported with WHERE .. LIKE
-            typePredBasic - Supported except for WHERE .. LIKE
-            typeSearchable - Supported for all WHERE ..
-            UNSIGNED_ATTRIBUTE boolean => is it unsigned.
-            FIXED_PREC_SCALE boolean => can it be a money value.
-            AUTO_INCREMENT boolean => can it be used for an auto-increment value.
-            LOCAL_TYPE_NAME String => localized version of type name (may be null)
-            MINIMUM_SCALE short => minimum scale supported
-            MAXIMUM_SCALE short => maximum scale supported
-            SQL_DATA_TYPE int => unused
-            SQL_DATETIME_SUB int => unused
-            NUM_PREC_RADIX int => usually 2 or 10
-         */
-        StringBuilder sb = new StringBuilder();
-        String union = "\nUNION\n";
-        for (Map.Entry<String, Integer> entry : TYPE_MAP.entrySet()) {
-            if (sb.length() > 0) {
-                sb.append(union);
-            }
-
-            sb.append(String.format(TYPE_INFO_TEMPLATE, entry.getKey(), entry.getValue()));
+        SqliteConnection connection = getMetadataDatabaseConnection();
+        Statement stmt = connection.createStatement();
+        ((SqliteStatement) stmt).closeOnCompletion();
+        try {
+            return stmt.executeQuery("SELECT * FROM metadata_types ORDER BY DATA_TYPE");
         }
-        sb.append(" ORDER BY DATA_TYPE");
-        String sql = sb.toString();
-        return executeConstantQuery(sql);
+        catch (SQLException e) {
+            SqliteCommon.closeQuietly(stmt);
+            throw e;
+        }
     }
 
     private static class IndexInfo {
@@ -1473,7 +1480,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean supportsStatementPooling() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override
@@ -1494,7 +1501,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public boolean autoCommitFailureClosesAllResultSets() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return false;
     }
 
     @Override
@@ -1508,8 +1515,27 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     }
 
     @Override
-    public ResultSet getFunctionColumns(String s, String s2, String s3, String s4) throws SQLException {
-        return null;  //To change body of implemented methods use File | Settings | File Templates.
+    public ResultSet getFunctionColumns(String catalog, String schemaPattern,
+            String functionNamePattern, String columnNamePattern) throws SQLException {
+        SqliteConnection connection = getMetadataDatabaseConnection();
+
+        if (functionNamePattern == null) {
+            functionNamePattern = "%";
+        }
+        if (columnNamePattern == null) {
+            columnNamePattern = "%";
+        }
+        PreparedStatement ps = connection.prepareStatement(GET_FUNCTION_COLUMNS_TEMPALTE);
+        ((SqlitePreparedStatement)ps).closeOnCompletion();
+        try {
+            ps.setString(1, functionNamePattern);
+            ps.setString(2, columnNamePattern);
+            return ps.executeQuery();
+        }
+        catch (SQLException e) {
+            SqliteCommon.closeQuietly(ps);
+            throw e;
+        }
     }
 
     public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern) throws SQLException {
@@ -1517,7 +1543,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     }
 
     public boolean generatedKeyAlwaysReturned() throws SQLException {
-        return false;  //To change body of implemented methods use File | Settings | File Templates.
+        return true;
     }
 
     @Override

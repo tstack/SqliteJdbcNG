@@ -84,7 +84,7 @@ public class SqliteParameterMetadata implements ParameterMetaData {
 
     @Override
     public String getParameterClassName(int param) throws SQLException {
-        return "java.lang.String";
+        return String.class.getCanonicalName();
     }
 
     @Override

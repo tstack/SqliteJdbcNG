@@ -174,6 +174,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
             this.addWarning(new SQLWarning("SQLite only supports CLOSE_CURSORS_AT_COMMIT result sets", "01000"));
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings("SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE")
     void executeCanned(String sql) throws SQLException {
         requireOpened();
 
@@ -470,6 +471,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         return ResultSet.CLOSE_CURSORS_AT_COMMIT;
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings("SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE")
     private void execSavepointStatement(String sql, SqliteSavepoint sp) throws SQLException {
         requireOpened();
         requireTransaction();
@@ -489,7 +491,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     public Savepoint setSavepoint() throws SQLException {
         SqliteSavepoint retval = new SqliteSavepoint(this.nextSavepointId());
 
-        execSavepointStatement("SAVEPOINT %q", retval);
+        execSavepointStatement("SAVEPOINT %Q", retval);
 
         return retval;
     }
@@ -498,19 +500,19 @@ public class SqliteConnection extends SqliteCommon implements Connection {
     public Savepoint setSavepoint(String name) throws SQLException {
         SqliteSavepoint retval = new SqliteSavepoint(name);
 
-        execSavepointStatement("SAVEPOINT %q", retval);
+        execSavepointStatement("SAVEPOINT %Q", retval);
 
         return retval;
     }
 
     @Override
     public void rollback(Savepoint savepoint) throws SQLException {
-        execSavepointStatement("ROLLBACK TO %q", (SqliteSavepoint)savepoint);
+        execSavepointStatement("ROLLBACK TO %Q", (SqliteSavepoint)savepoint);
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint) throws SQLException {
-        execSavepointStatement("RELEASE SAVEPOINT %q", (SqliteSavepoint)savepoint);
+        execSavepointStatement("RELEASE SAVEPOINT %Q", (SqliteSavepoint)savepoint);
     }
 
     @Override

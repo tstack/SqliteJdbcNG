@@ -28,13 +28,14 @@ package org.sqlitejdbcng;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.spi.FileTypeDetector;
 import java.util.Arrays;
 
 public class SqliteFileTypeDetector extends FileTypeDetector {
-    private static final byte[] VERSION_HEADER = "SQLite format 3\000".getBytes();
+    private static final byte[] VERSION_HEADER = "SQLite format 3\000".getBytes(StandardCharsets.UTF_8);
     private static final String MIME_TYPE = "application/x-sqlite3";
 
     @Override

@@ -88,7 +88,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         TimeoutProgressCallback cb = null;
 
         try {
-            cb = this.timeoutCallback.setExpiration(this.parent.getQueryTimeout() * 1000);
+            cb = this.timeoutCallback.setExpiration(((long)this.parent.getQueryTimeout()) * 1000L);
             int rc = Sqlite3.sqlite3_step(this.stmt.getPeer());
 
             if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
@@ -245,6 +245,7 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
     }
 
     @Override
+    @edu.umd.cs.findbugs.annotations.SuppressWarnings("PZLA_PREFER_ZERO_LENGTH_ARRAYS")
     public byte[] getBytes(int i) throws SQLException {
         int zcol = checkColumn(i);
         long ptr = Sqlite3.sqlite3_column_blob(this.stmt.getPeer(), zcol);
@@ -907,16 +908,16 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
             throw new SQLDataException("Invalid time -- " + timeString, "22000");
         }
 
-        calendar.set(Calendar.HOUR_OF_DAY, Integer.valueOf(m.group(1)));
-        calendar.set(Calendar.MINUTE, Integer.valueOf(m.group(2)));
+        calendar.set(Calendar.HOUR_OF_DAY, Integer.parseInt(m.group(1)));
+        calendar.set(Calendar.MINUTE, Integer.parseInt(m.group(2)));
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
         val = m.group(3);
         if (val != null) {
-            calendar.set(Calendar.SECOND, Integer.valueOf(m.group(3)));
+            calendar.set(Calendar.SECOND, Integer.parseInt(m.group(3)));
             val = m.group(4);
             if (val != null) {
-                calendar.set(Calendar.MILLISECOND, Integer.valueOf(m.group(4)));
+                calendar.set(Calendar.MILLISECOND, Integer.parseInt(m.group(4)));
             }
         }
 
@@ -943,17 +944,17 @@ public class SqliteResultSet extends SqliteCommon implements ResultSet {
         }
 
         cal.clear();
-        cal.set(Calendar.YEAR, Integer.valueOf(m.group(1)));
-        cal.set(Calendar.MONTH, Integer.valueOf(m.group(2)) - 1);
-        cal.set(Calendar.DAY_OF_MONTH, Integer.valueOf(m.group(3)));
-        cal.set(Calendar.HOUR, Integer.valueOf(m.group(4)));
-        cal.set(Calendar.MINUTE, Integer.valueOf(m.group(5)));
+        cal.set(Calendar.YEAR, Integer.parseInt(m.group(1)));
+        cal.set(Calendar.MONTH, Integer.parseInt(m.group(2)) - 1);
+        cal.set(Calendar.DAY_OF_MONTH, Integer.parseInt(m.group(3)));
+        cal.set(Calendar.HOUR, Integer.parseInt(m.group(4)));
+        cal.set(Calendar.MINUTE, Integer.parseInt(m.group(5)));
         optval = m.group(6);
         if (optval != null) {
-            cal.set(Calendar.SECOND, Integer.valueOf(optval));
+            cal.set(Calendar.SECOND, Integer.parseInt(optval));
             optval = m.group(7);
             if (optval != null) {
-                cal.set(Calendar.MILLISECOND, Integer.valueOf(optval));
+                cal.set(Calendar.MILLISECOND, Integer.parseInt(optval));
             }
         }
 

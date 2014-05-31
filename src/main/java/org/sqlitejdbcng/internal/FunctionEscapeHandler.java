@@ -30,6 +30,7 @@ import org.sqlitejdbcng.bridj.Sqlite3;
 
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -52,7 +53,7 @@ public class FunctionEscapeHandler implements EscapeHandler {
         Matcher m = FUNC_PATTERN.matcher(arg);
 
         if (m.matches()) {
-            String name = m.group(1).toUpperCase();
+            String name = m.group(1).toUpperCase(Locale.ROOT);
             String mappedName = SIMPLE_MAPPINGS.get(name);
 
             if (mappedName != null) {

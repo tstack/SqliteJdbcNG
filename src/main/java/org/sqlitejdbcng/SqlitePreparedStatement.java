@@ -36,6 +36,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -110,7 +111,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
                     break;
                 case Types.VARCHAR: {
                     String str = (String) values[lpc];
-                    byte[] bits = str.getBytes();
+                    byte[] bits = str.getBytes(StandardCharsets.UTF_8);
                     Pointer<Byte> ptr = Sqlite3.sqlite3_malloc(bits.length);
 
                     ptr.setBytes(bits);
@@ -409,7 +410,7 @@ public class SqlitePreparedStatement extends SqliteStatement implements Prepared
             int rc;
 
             try {
-                cb = this.timeoutCallback.setExpiration(this.getQueryTimeout() * 1000);
+                cb = this.timeoutCallback.setExpiration(((long)this.getQueryTimeout()) * 1000L);
                 rc = Sqlite3.sqlite3_step(stmt.getPeer());
                 if (cb != null && rc == Sqlite3.ReturnCodes.SQLITE_INTERRUPT.value()) {
                     throw new SQLTimeoutException("Query timeout reached", "57000");

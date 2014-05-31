@@ -26,37 +26,25 @@
 
 package org.sqlitejdbcng.bridj;
 
-import org.bridj.BridJ;
-import org.bridj.Callback;
-import org.bridj.FlagSet;
-import org.bridj.IntValuedEnum;
-import org.bridj.NativeLibrary;
-import org.bridj.Pointer;
-import org.bridj.StructObject;
+import org.bridj.*;
 import org.bridj.ann.Library;
 import org.bridj.ann.Optional;
 import org.bridj.ann.Ptr;
 
 import java.io.IOException;
-import java.sql.SQLException;
-import java.sql.SQLIntegrityConstraintViolationException;
-import java.sql.SQLNonTransientConnectionException;
-import java.sql.SQLNonTransientException;
-import java.sql.SQLSyntaxErrorException;
-import java.sql.SQLTransactionRollbackException;
-import java.sql.SQLTransientConnectionException;
-import java.sql.SQLTransientException;
+import java.sql.*;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Library("sqlite3")
 public class Sqlite3 {
 
+    private static boolean HAVE_STMT_READONLY = true;
     public static final boolean SQLITE_ENABLE_COLUMN_METADATA;
-    public static boolean HAVE_STMT_READONLY = true;
     public static final boolean HAVE_LOAD_EXTENSION;
 
     private static final Logger LOGGER = Logger.getLogger(Sqlite3.class.getName());
@@ -286,12 +274,16 @@ public class Sqlite3 {
         }
     }
 
+    public static boolean have_stmt_readonly() {
+        return HAVE_STMT_READONLY;
+    }
+
     public static int stmt_readonly(Pointer<Statement> stmt, String s) {
         int ro = stmt_readonly(stmt);
 
         switch (ro) {
             case -1: {
-                String upper = s.toUpperCase();
+                String upper = s.toUpperCase(Locale.ROOT);
 
                 if (upper.startsWith("SELECT") ||
                         upper.startsWith("ATTACH") ||

@@ -26,10 +26,13 @@
 
 package org.sqlitejdbcng.internal;
 
+import org.sqlitejdbcng.SqliteCommon;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,7 +44,7 @@ public class SQLKeywords {
         if (is == null)
             throw new RuntimeException("Bad resource name -- " + name);
         try {
-            reader = new BufferedReader(new InputStreamReader(is));
+            reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
             List<String> keywords = new ArrayList<String>();
             String line;
 
@@ -51,7 +54,8 @@ public class SQLKeywords {
 
             return keywords.toArray(new String[keywords.size()]);
         } finally {
-            reader.close();
+            SqliteCommon.closeQuietly(reader);
+            SqliteCommon.closeQuietly(is);
         }
     }
 

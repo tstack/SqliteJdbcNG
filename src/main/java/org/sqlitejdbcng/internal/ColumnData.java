@@ -35,6 +35,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -97,7 +98,7 @@ public class ColumnData {
         this.tableName = tableName;
         this.index = index;
         this.name = name;
-        this.fullType = fullType.toUpperCase();
+        this.fullType = fullType.toUpperCase(Locale.ROOT);
 
         precision = Sqlite3.sqlite3_limit(db, Sqlite3.Limit.SQLITE_LIMIT_LENGTH.value(), -1);
         scale = 0;
@@ -105,9 +106,10 @@ public class ColumnData {
         if (m.matches()) {
             this.type = m.group(1).trim();
             if (m.group(2) != null) {
-                precision = Integer.valueOf(m.group(2));
-                if (m.group(3) != null)
-                    scale = Integer.valueOf(m.group(3));
+                precision = Integer.parseInt(m.group(2));
+                if (m.group(3) != null) {
+                    scale = Integer.parseInt(m.group(3));
+                }
             }
         }
         else {

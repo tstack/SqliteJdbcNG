@@ -30,6 +30,9 @@ import org.bridj.Pointer;
 import org.junit.Test;
 import org.sqlitejdbcng.bridj.Sqlite3;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -43,8 +46,20 @@ public class SqliteConnectionTest extends SqliteTestHelper {
     @Test
     public void testFileType() throws Exception {
         Path path = Paths.get(this.dbFile.getAbsolutePath());
+        File blankFile = this.testFolder.newFile("blank");
+        File shortFile = this.testFolder.newFile("short");
+        File invalidFile = this.testFolder.newFile("invalid");
 
         assertEquals("application/x-sqlite3", Files.probeContentType(path));
+        assertEquals(null, Files.probeContentType(Paths.get(blankFile.toURI())));
+        try (OutputStream os = new FileOutputStream(shortFile)) {
+            os.write(1);
+        }
+        assertEquals(null, Files.probeContentType(Paths.get(shortFile.toURI())));
+        try (OutputStream os = new FileOutputStream(invalidFile)) {
+            os.write(new byte[32]);
+        }
+        assertEquals(null, Files.probeContentType(Paths.get(invalidFile.toURI())));
     }
 
     @Test
@@ -401,7 +416,7 @@ public class SqliteConnectionTest extends SqliteTestHelper {
             }
 
             stmt.executeUpdate("INSERT INTO test_table VALUES (3, 'test')");
-            sp = this.conn.setSavepoint("test");
+            sp = this.conn.setSavepoint("test\"'");
             stmt.executeUpdate("INSERT INTO test_table VALUES (4, 'test')");
             try {
                 sp.getSavepointId();
@@ -409,7 +424,7 @@ public class SqliteConnectionTest extends SqliteTestHelper {
             }
             catch (SQLException e) {
             }
-            assertEquals("test", sp.getSavepointName());
+            assertEquals("test\"'", sp.getSavepointName());
             this.conn.rollback(sp);
             this.conn.commit();
 

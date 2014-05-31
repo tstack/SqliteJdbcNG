@@ -26,16 +26,19 @@
 
 package org.sqlitejdbcng.internal;
 
+import org.sqlitejdbcng.SqliteCommon;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 /**
  * //TODO Write file description
  */
 public class SQLTemplate {
-    public static String readTemplate(String name) {
+    public static String readTemplate(String name, Object... args) {
         InputStream is = SQLKeywords.class.getResourceAsStream(name);
         StringBuffer retval = new StringBuffer();
         BufferedReader reader = null;
@@ -45,7 +48,7 @@ public class SQLTemplate {
         try {
             char[] buffer = new char[4096];
 
-            reader = new BufferedReader(new InputStreamReader(is));
+            reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
             while (true) {
                 int rc = reader.read(buffer);
 
@@ -55,9 +58,21 @@ public class SQLTemplate {
 
                 retval.append(buffer, 0, rc);
             }
-            return retval.toString();
+            if (args.length > 0) {
+                return String.format(retval.toString(), args);
+            }
+            else {
+                return retval.toString();
+            }
         } catch (IOException e) {
             throw new RuntimeException("Unable to read template -- " + name, e);
+        } finally {
+            SqliteCommon.closeQuietly(reader);
+            SqliteCommon.closeQuietly(is);
         }
+    }
+
+    public static String[] readTemplateArray(String name, Object... args) {
+        return readTemplate(name, args).split(";\\r?\\n");
     }
 }

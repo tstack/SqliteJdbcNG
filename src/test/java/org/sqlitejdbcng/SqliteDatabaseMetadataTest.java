@@ -34,7 +34,11 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
     @Test
@@ -51,10 +55,6 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
                 { "allTablesAreSelectable", true },
                 { "getURL", "jdbc:sqlite:" + this.dbFile.getAbsolutePath() },
                 { "getUserName", "" },
-                { "nullsAreSortedHigh", false },
-                { "nullsAreSortedLow", true },
-                { "nullsAreSortedAtStart", false },
-                { "nullsAreSortedAtEnd", false },
                 { "getDatabaseProductName", "SQLite" },
                 { "getDriverName", "org.sqlitejdbcng" },
                 { "getDriverVersion", "" + SqliteDriver.VERSION[0] + "." + SqliteDriver.VERSION[1] },
@@ -82,11 +82,132 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
         }
     }
 
+    private static final String[] LIMITED_FUNCTIONS = {
+            "getMaxBinaryLiteralLength",
+            "getMaxCharLiteralLength",
+            "getMaxColumnsInGroupBy",
+            "getMaxColumnsInIndex",
+            "getMaxColumnsInOrderBy",
+            "getMaxColumnsInSelect",
+            "getMaxColumnsInTable",
+            "getMaxRowSize",
+            "getMaxStatementLength",
+            "getMaxTablesInSelect",
+    };
+
+    private static final String[] UNLIMITED_FUNCTIONS = {
+            "getMaxColumnNameLength",
+            "getMaxConnections",
+            "getMaxIndexLength",
+            "getMaxCatalogNameLength",
+            "getMaxStatements",
+            "getMaxTableNameLength",
+    };
+
+    @Test
+    public void testLimits() throws Exception {
+        DatabaseMetaData dmd = this.conn.getMetaData();
+        Class<DatabaseMetaData> cl = DatabaseMetaData.class;
+
+        for (String functionName : LIMITED_FUNCTIONS) {
+            Method method = cl.getMethod(functionName);
+            Object result = method.invoke(dmd);
+
+            assertNotEquals("Test of -- " + functionName, 0, result);
+        }
+        for (String functionName : UNLIMITED_FUNCTIONS) {
+            Method method = cl.getMethod(functionName);
+            Object result = method.invoke(dmd);
+
+            assertEquals("Test of -- " + functionName, 0, result);
+        }
+    }
+
+    private static final String[] UNSUPPORTED_LIMIT_FUNCTIONS = {
+            "getMaxCursorNameLength",
+            "getMaxSchemaNameLength",
+            "getMaxProcedureNameLength",
+            "getMaxUserNameLength",
+    };
+
+    @Test
+    public void testUnsupportedLimits() throws Exception {
+        DatabaseMetaData dmd = this.conn.getMetaData();
+        Class<DatabaseMetaData> cl = DatabaseMetaData.class;
+
+        for (String functionName : UNSUPPORTED_LIMIT_FUNCTIONS) {
+            Method method = cl.getMethod(functionName);
+            Object result = method.invoke(dmd);
+
+            assertEquals("Test of -- " + functionName, 0, result);
+        }
+    }
+
+    private static final String[] NULL_SORT_ASC_RESULT_SET = {
+            "|null|",
+            "|1|",
+    };
+
+    private static final String[] NULL_SORT_DESC_RESULT_SET = {
+            "|1|",
+            "|null|",
+    };
+
+    @Test
+    public void testNullSorting() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery(
+                    "SELECT null AS col0 UNION ALL SELECT 1 AS col0 ORDER BY col0 ASC")) {
+                assertArrayEquals(NULL_SORT_ASC_RESULT_SET, this.formatResultSet(rs));
+                assertEquals(dbMetadata.nullsAreSortedLow(),
+                        NULL_SORT_ASC_RESULT_SET[0].equals("|null|"));
+                assertEquals(dbMetadata.nullsAreSortedAtEnd(),
+                        NULL_SORT_ASC_RESULT_SET[1].equals("|null|"));
+                assertEquals(dbMetadata.nullsAreSortedHigh(),
+                        NULL_SORT_ASC_RESULT_SET[1].equals("|null|"));
+            }
+            try (ResultSet rs = stmt.executeQuery(
+                    "SELECT null AS col0 UNION ALL SELECT 1 AS col0 ORDER BY col0 DESC")) {
+                assertArrayEquals(NULL_SORT_DESC_RESULT_SET, this.formatResultSet(rs));
+                assertEquals(dbMetadata.nullsAreSortedHigh(),
+                        NULL_SORT_DESC_RESULT_SET[0].equals("|null|"));
+                assertEquals(dbMetadata.nullsAreSortedAtStart(),
+                        NULL_SORT_DESC_RESULT_SET[0].equals("|null|"));
+                assertEquals(dbMetadata.nullsAreSortedLow(),
+                        NULL_SORT_DESC_RESULT_SET[1].equals("|null|"));
+            }
+        }
+    }
+
     @Test
     public void testVersion() throws Exception {
         DatabaseMetaData dmd = this.conn.getMetaData();
 
         assertTrue(dmd.getDatabaseProductVersion().matches("\\d+\\.\\d+\\.\\d+(\\.\\d+)?"));
+    }
+
+    private static final String MIXED_IDENT_HEADER = "|aBcD|";
+
+    @Test
+    public void testIdentifiers() throws Exception {
+        try (Statement stmt = this.conn.createStatement()) {
+            stmt.execute("CREATE TABLE mixed_IDENT (aBcD int)");
+            try (ResultSet rs = stmt.executeQuery("SELECT abcd from mixed_ident")) {
+                assertEquals(MIXED_IDENT_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+                assertFalse(this.dbMetadata.supportsMixedCaseIdentifiers());
+                assertFalse(this.dbMetadata.storesUpperCaseIdentifiers());
+                assertFalse(this.dbMetadata.storesLowerCaseIdentifiers());
+                assertTrue(this.dbMetadata.storesMixedCaseIdentifiers());
+            }
+            stmt.execute("CREATE TABLE \"quote_IDENT\" (\"aBcD\" int)");
+            try (ResultSet rs = stmt.executeQuery("SELECT abcd from \"quote_ident\"")) {
+                assertEquals(MIXED_IDENT_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+                assertFalse(this.dbMetadata.supportsMixedCaseQuotedIdentifiers());
+                assertFalse(this.dbMetadata.storesUpperCaseQuotedIdentifiers());
+                assertFalse(this.dbMetadata.storesLowerCaseQuotedIdentifiers());
+                assertTrue(this.dbMetadata.storesMixedCaseQuotedIdentifiers());
+            }
+        }
     }
 
     private static final String GET_PROCEDURES_HEADER =
@@ -367,17 +488,39 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
     }
 
     private static final String[] TYPE_INFO_DUMP = {
-            "|NULL|0|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
-            "|INTEGER|4|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
-            "|REAL|7|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
-            "|TEXT|12|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
-            "|BLOB|2004|0|null|null|null|typeNullable|1|typeSearchable|0|0|0|null|0|0|0|0|10|",
+            "|TEXT|-1|2147483645|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
+            "|NULL|0|null|null|null|null|1|0|2|0|0|0|null|0|0|null|null|null|",
+            "|NUMERIC|2|16|null|null|null|1|0|2|0|0|0|null|0|14|null|null|10|",
+            "|INTEGER|4|19|null|null|null|1|0|2|0|0|1|null|0|0|null|null|10|",
+            "|REAL|7|16|null|null|null|1|0|2|0|0|0|null|0|14|null|null|10|",
+            "|VARCHAR|12|2147483645|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
+            "|BOOLEAN|16|1|null|null|null|1|0|2|0|0|0|null|0|0|null|null|2|",
+            "|BLOB|2004|2147483645|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
     };
     
     @Test
     public void testTypeInfo() throws Exception {
         try (ResultSet rs = this.dbMetadata.getTypeInfo()) {
             assertArrayEquals(TYPE_INFO_DUMP, formatResultSet(rs));
+        }
+    }
+
+    private static final String GET_FUNCTION_COLUMNS_HEADER =
+            "|FUNCTION_CAT|FUNCTION_SCHEM|FUNCTION_NAME|COLUMN_NAME|COLUMN_TYPE|DATA_TYPE|TYPE_NAME|PRECISION|LENGTH|SCALE|RADIX|NULLABLE|REMARKS|CHAR_OCTET_LENGTH|ORDINAL_POSITION|IS_NULLABLE|SPECIFIC_NAME|";
+
+    private static final String[] GET_FUNCTION_COLUMNS_ABS_DUMP = {
+            "|null|null|abs|X|1|2|NUMERIC|16|0|14|10|1|The absolute value of this argument will be returned|null|1|YES|null|",
+            "|null|null|abs|return|5|2|NUMERIC|16|0|14|10|1|The absolute value of the X argument.|null|0|YES|null|",
+    };
+
+    @Test
+    public void testGetFunctionColumns() throws Exception {
+        try (ResultSet rs = this.dbMetadata.getFunctionColumns(null, null, null, null)) {
+            assertEquals(GET_FUNCTION_COLUMNS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+        }
+        try (ResultSet rs = this.dbMetadata.getFunctionColumns(null, null, "abs", null)) {
+            assertEquals(GET_FUNCTION_COLUMNS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(GET_FUNCTION_COLUMNS_ABS_DUMP, this.formatResultSet(rs));
         }
     }
 }

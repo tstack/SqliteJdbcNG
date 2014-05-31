@@ -292,7 +292,7 @@ public class SqliteStatementTest extends SqliteTestHelper {
 
     @Test(expected = SQLNonTransientException.class)
     public void testExecuteNonQuery() throws Exception {
-        assumeTrue(Sqlite3.HAVE_STMT_READONLY);
+        assumeTrue(Sqlite3.have_stmt_readonly());
 
         try (Statement stmt = this.conn.createStatement()) {
             stmt.executeQuery("INSERT INTO test_table VALUES (2, 'testing')");

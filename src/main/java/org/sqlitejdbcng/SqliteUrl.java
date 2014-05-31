@@ -26,6 +26,7 @@
 
 package org.sqlitejdbcng;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,6 +54,6 @@ public class SqliteUrl {
     }
 
     public static boolean isSqliteUrl(String url) {
-        return url.toLowerCase().startsWith(PREFIX);
+        return url.toLowerCase(Locale.ROOT).startsWith(PREFIX);
     }
 }
