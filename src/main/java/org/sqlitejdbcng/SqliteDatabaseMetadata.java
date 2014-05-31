@@ -26,6 +26,7 @@
 
 package org.sqlitejdbcng;
 
+import org.bridj.Pointer;
 import org.sqlitejdbcng.bridj.Sqlite3;
 import org.sqlitejdbcng.internal.ColumnData;
 import org.sqlitejdbcng.internal.SQLKeywords;
@@ -78,16 +79,14 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
         KEYWORD_LIST = Sqlite3.join(sqliteList.toArray(), ",");
     }
 
-    private static synchronized SqliteConnection getMetadataDatabaseConnection() {
+    private static synchronized SqliteConnection getMetadataDatabaseConnection(Pointer<Sqlite3.Sqlite3Db> db) {
         if (METADATA_DATABASE_CONNECTION == null) {
             try {
                 METADATA_DATABASE_CONNECTION = new SqliteConnection("jdbc:sqlite::memory:",
                         new Properties());
                 Statement stmt = null;
                 try {
-                    int maxLength = Sqlite3.sqlite3_limit(
-                            METADATA_DATABASE_CONNECTION.getHandle(),
-                            Sqlite3.Limit.SQLITE_LIMIT_LENGTH.value(), -1);
+                    int maxLength = Sqlite3.sqlite3_limit(db, Sqlite3.Limit.SQLITE_LIMIT_LENGTH.value(), -1);
                     String[][] FUNCTION_STATEMENTS = {
                             SQLTemplate.readTemplateArray("/metadata-types.sql", maxLength),
                             SQLTemplate.readTemplateArray("/metadata-functions.sql"),
@@ -1230,7 +1229,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
 
     @Override
     public ResultSet getTypeInfo() throws SQLException {
-        SqliteConnection connection = getMetadataDatabaseConnection();
+        SqliteConnection connection = getMetadataDatabaseConnection(conn.getHandle());
         Statement stmt = connection.createStatement();
         ((SqliteStatement) stmt).closeOnCompletion();
         try {
@@ -1517,7 +1516,7 @@ public class SqliteDatabaseMetadata implements DatabaseMetaData {
     @Override
     public ResultSet getFunctionColumns(String catalog, String schemaPattern,
             String functionNamePattern, String columnNamePattern) throws SQLException {
-        SqliteConnection connection = getMetadataDatabaseConnection();
+        SqliteConnection connection = getMetadataDatabaseConnection(conn.getHandle());
 
         if (functionNamePattern == null) {
             functionNamePattern = "%";

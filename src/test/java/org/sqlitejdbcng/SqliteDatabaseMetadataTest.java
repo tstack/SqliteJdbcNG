@@ -27,6 +27,7 @@
 package org.sqlitejdbcng;
 
 import org.junit.Test;
+import org.sqlitejdbcng.bridj.Sqlite3;
 
 import java.lang.reflect.Method;
 import java.sql.DatabaseMetaData;
@@ -34,11 +35,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
     @Test
@@ -488,18 +485,20 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
     }
 
     private static final String[] TYPE_INFO_DUMP = {
-            "|TEXT|-1|2147483645|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
+            "|TEXT|-1|10000|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
             "|NULL|0|null|null|null|null|1|0|2|0|0|0|null|0|0|null|null|null|",
             "|NUMERIC|2|16|null|null|null|1|0|2|0|0|0|null|0|14|null|null|10|",
             "|INTEGER|4|19|null|null|null|1|0|2|0|0|1|null|0|0|null|null|10|",
             "|REAL|7|16|null|null|null|1|0|2|0|0|0|null|0|14|null|null|10|",
-            "|VARCHAR|12|2147483645|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
+            "|VARCHAR|12|10000|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
             "|BOOLEAN|16|1|null|null|null|1|0|2|0|0|0|null|0|0|null|null|2|",
-            "|BLOB|2004|2147483645|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
+            "|BLOB|2004|10000|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
     };
     
     @Test
     public void testTypeInfo() throws Exception {
+        Sqlite3.sqlite3_limit(((SqliteConnection) conn).getHandle(),
+                Sqlite3.Limit.SQLITE_LIMIT_LENGTH.value(), 10000);
         try (ResultSet rs = this.dbMetadata.getTypeInfo()) {
             assertArrayEquals(TYPE_INFO_DUMP, formatResultSet(rs));
         }
