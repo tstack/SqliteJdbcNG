@@ -51,7 +51,7 @@ public class SqliteConnectionTest extends SqliteTestHelper {
         File invalidFile = this.testFolder.newFile("invalid");
 
         assertEquals("application/x-sqlite3", Files.probeContentType(path));
-        assertEquals(null, Files.probeContentType(Paths.get(blankFile.toURI())));
+        assertNotEquals("application/x-sqlite3", Files.probeContentType(Paths.get(blankFile.toURI())));
         try (OutputStream os = new FileOutputStream(shortFile)) {
             os.write(1);
         }
