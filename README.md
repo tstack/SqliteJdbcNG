@@ -44,7 +44,7 @@ The driver is shooting to support the following spec/software versions:
 * SQLite 3.7.X (Most of the tests pass with 3.6.22, but supporting pre-3.7
   versions is not a priority.)
 * Java 7
-* BridJ 0.6.2
+* BridJ 0.7.0
 
 
 Existing Drivers
