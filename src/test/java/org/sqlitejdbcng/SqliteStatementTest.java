@@ -256,7 +256,7 @@ public class SqliteStatementTest extends SqliteTestHelper {
             }
 
             try {
-                stmt.executeUpdate("INSERT INTO test_table VALUES (2, 'testing cancel')");
+                stmt.executeUpdate("UPDATE test_table SET name = name || ' foo' where id > 5");
                 fail("Statement was not cancelled?");
             }
             catch (SQLException e) {

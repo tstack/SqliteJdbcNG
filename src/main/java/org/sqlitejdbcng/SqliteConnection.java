@@ -539,7 +539,7 @@ public class SqliteConnection extends SqliteCommon implements Connection {
         Pointer<Pointer<Sqlite3.Statement>> stmt_out = Pointer.allocatePointer(Sqlite3.Statement.class);
 
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.db,
-                Pointer.pointerToCString(this.nativeSQL(s)), -1, stmt_out, Pointer.NULL),
+                Pointer.pointerToCString(this.nativeSQL(s)), -1, stmt_out, (Pointer<Pointer<Byte>>) Pointer.NULL),
                 this.db);
 
         return new SqlitePreparedStatement(this, stmt_out.get(), s);

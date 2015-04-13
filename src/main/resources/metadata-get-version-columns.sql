@@ -1,0 +1,9 @@
+SELECT null AS SCOPE,
+    null AS COLUMN_NAME,
+    null AS DATA_TYPE,
+    null AS TYPE_NAME,
+    null AS COLUMN_SIZE,
+    null AS BUFFER_LENGTH,
+    null AS DECIMAL_DIGITS,
+    null AS PSEUDO_COLUMN
+    LIMIT 0

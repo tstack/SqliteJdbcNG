@@ -344,7 +344,9 @@ public class SqliteConnectionTest extends SqliteTestHelper {
 
         try (Statement stmt = this.conn.createStatement()) {
             reachedExecute = true;
-            stmt.executeUpdate("INSERT INTO test_table VALUES (2, 'test')");
+            // XXX Need a semi-complex statement here since later versions of sqlite3 are optimized
+            // to not call the progress handler as frequently.
+            stmt.executeUpdate("UPDATE test_table SET name = name || ' foo' where id > 5");
             fail("Statement was not aborted?");
         }
         catch (SQLException e) {

@@ -484,6 +484,31 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
         }
     }
 
+    private static final String VERSION_COLUMNS_HEADER =
+            "|SCOPE|COLUMN_NAME|DATA_TYPE|TYPE_NAME|COLUMN_SIZE|BUFFER_LENGTH|DECIMAL_DIGITS|PSEUDO_COLUMN|";
+
+    @Test
+    public void testVersionColumns() throws Exception {
+        try (ResultSet rs = this.dbMetadata.getVersionColumns(null, null, null)) {
+            assertEquals(VERSION_COLUMNS_HEADER, formatResultSetHeader(rs.getMetaData()));
+        }
+    }
+
+    private static final String BEST_ROW_ID_HEADER =
+            "|SCOPE|COLUMN_NAME|DATA_TYPE|TYPE_NAME|COLUMN_SIZE|BUFFER_LENGTH|DECIMAL_DIGITS|PSEUDO_COLUMN|";
+
+    private static final String[] BEST_ROW_ID_DUMP = {
+            "|0|rowid|4|INTEGER|8|null|19|2|"
+    };
+
+    @Test
+    public void testBestRowId() throws Exception {
+        try (ResultSet rs = this.dbMetadata.getBestRowIdentifier(null, null, null, DatabaseMetaData.bestRowTemporary, false)) {
+            assertEquals(BEST_ROW_ID_HEADER, formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(BEST_ROW_ID_DUMP, formatResultSet(rs));
+        }
+    }
+
     private static final String[] TYPE_INFO_DUMP = {
             "|TEXT|-1|10000|'|'|null|1|1|3|0|0|0|null|0|0|null|null|null|",
             "|NULL|0|null|null|null|null|1|0|2|0|0|0|null|0|0|null|null|null|",
@@ -520,6 +545,38 @@ public class SqliteDatabaseMetadataTest extends SqliteTestHelper {
         try (ResultSet rs = this.dbMetadata.getFunctionColumns(null, null, "abs", null)) {
             assertEquals(GET_FUNCTION_COLUMNS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
             assertArrayEquals(GET_FUNCTION_COLUMNS_ABS_DUMP, this.formatResultSet(rs));
+        }
+    }
+
+    private static final String GET_STRING_FUNCTIONS_LIST =
+            "char,glob,instr,hex,length,like,lower,ltrim,printf,quote,replace,rtrim,soundex,substr,trim,unicode,upper";
+    private static final String GET_NUMERIC_FUNCTIONS_LIST =
+            "abs,max,min,random,round";
+    private static final String GET_SYSTEM_FUNCTIONS_LIST =
+            "changes,coalesce,ifnull,last_insert_rowid,load_extension,nullif,randomblob,sqlite_compileopiton_get,sqlite_compileoption_used,sqlite_source_id,sqlite_version,total_changes,typeof,zeroblob";
+
+    @Test
+    public void testGetFunctionLists() throws Exception {
+        assertEquals(GET_STRING_FUNCTIONS_LIST, this.dbMetadata.getStringFunctions());
+        assertEquals(GET_NUMERIC_FUNCTIONS_LIST, this.dbMetadata.getNumericFunctions());
+        assertEquals(GET_SYSTEM_FUNCTIONS_LIST, this.dbMetadata.getSystemFunctions());
+    }
+
+    private static final String GET_FUNCTIONS_HEADER =
+            "|FUNCTION_CAT|FUNCTION_SCHEM|FUNCTION_NAME|REMARKS|FUNCTION_TYPE|SPECIFIC_NAME|";
+
+    private static final String[] GET_FUNCTIONS_ABS_DUMP = {
+            "|null|null|abs|Return the absolute value of the argument.|1|abs|"
+    };
+
+    @Test
+    public void testGetFunctions() throws Exception {
+        try (ResultSet rs = this.dbMetadata.getFunctions(null, null, null)) {
+            assertEquals(GET_FUNCTIONS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+        }
+        try (ResultSet rs = this.dbMetadata.getFunctions(null, null, "abs")) {
+            assertEquals(GET_FUNCTIONS_HEADER, this.formatResultSetHeader(rs.getMetaData()));
+            assertArrayEquals(GET_FUNCTIONS_ABS_DUMP, this.formatResultSet(rs));
         }
     }
 }

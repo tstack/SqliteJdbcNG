@@ -106,7 +106,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         this.lastQuery = s;
 
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
-                Pointer.pointerToCString(escapedString), -1, stmt_out, Pointer.NULL),
+                Pointer.pointerToCString(escapedString), -1, stmt_out, (Pointer<Pointer<Byte>>) Pointer.NULL),
                 this.conn.getHandle());
 
         Pointer<Sqlite3.Statement> stmt = stmt_out.get();
@@ -257,7 +257,7 @@ public class SqliteStatement extends SqliteCommon implements Statement {
         this.lastUpdateCount = -1;
         this.replaceResultSet(null);
         Sqlite3.checkOk(Sqlite3.sqlite3_prepare_v2(this.conn.getHandle(),
-                Pointer.pointerToCString(escapedString), -1, stmt_out, Pointer.NULL),
+                Pointer.pointerToCString(escapedString), -1, stmt_out, (Pointer<Pointer<Byte>>) Pointer.NULL),
                 this.conn.getHandle());
 
         Pointer<Sqlite3.Statement> stmt = stmt_out.get();

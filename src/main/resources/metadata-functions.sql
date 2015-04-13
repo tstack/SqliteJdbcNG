@@ -1,6 +1,157 @@
 
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE metadata_function (
+    FUNCTION_KIND VARCHAR(32) CHECK (FUNCTION_KIND IN ('numeric', 'string', 'system')),
+    FUNCTION_NAME VARCHAR(64) UNIQUE,
+    REMARKS TEXT
+);
+
+INSERT INTO metadata_function VALUES (
+    'numeric', 'abs', 'Return the absolute value of the argument.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'changes', 'Return the number of database rows changed by the last DML statement.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'char', 'Return a string having the given unicode code points.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'coalesce', 'Returns a copy of the first non-NULL argument.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'glob', 'Test a string against a glob pattern.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'ifnull', 'Return a copy of the first non-NULL argument.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'instr', 'Find the first occurrence of one string in another.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'hex', 'Return the hexadecimal rendering of its argument.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'last_insert_rowid', 'Returns the ROWID of the last row inserted.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'length', 'Return the length of its argument.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'like', 'Test a string against a like pattern.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'load_extension', 'Load an extension module.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'lower', 'Return the lowercase version of its argument.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'ltrim', 'Trim the left side of a string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'numeric', 'max', 'Return the maximum value of its arguments.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'numeric', 'min', 'Return the minimum value of its arguments.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'nullif', 'Conditionally return arguments if one is NULL.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'printf', 'The printf() C-language function.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'quote', 'Return the given string as a quoted SQL string literal.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'numeric', 'random', 'Return a random number.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'randomblob', 'Return an N-byte blob of pseudo-random bytes.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'replace', 'Perform substitutions on a string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'numeric', 'round', 'Round a floating-point value.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'rtrim', 'Trim characters from the right hand side of a string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'soundex', 'Return the soundex encoding of a string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'sqlite_compileopiton_get', 'Get the compile-time options for the SQLite library.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'sqlite_compileoption_used', 'Test if a compile-time option was used.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'sqlite_source_id', 'Return the source SHA1 hash.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'sqlite_version', 'Return the version of the SQLite library.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'substr', 'Return a portion of a string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'total_changes', 'Return the total number of changes caused by DML statements.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'trim', 'Trim characters from both sides of a string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'typeof', 'Return the type of its argument.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'unicode', 'Return the numeric code point of the first character of string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'string', 'upper', 'Return the uppercase version of a string.'
+);
+
+INSERT INTO metadata_function VALUES (
+    'system', 'zeroblob', 'Return a blob consisting of N bytes of 0x00.'
+);
+
+
 CREATE TABLE metadata_function_arguments (
     FUNCTION_NAME VARCHAR(64),
     COLUMN_NAME VARCHAR(64),
